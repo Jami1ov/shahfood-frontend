@@ -1,762 +1,1136 @@
-import { useState, useEffect } from "react";
-import { Search, MapPin, ArrowLeft, Plus, Minus, User, ShoppingBag, Home, Package, LogOut, Phone, ChevronRight, Check, X, Edit3, Wallet, CreditCard, Star } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, MapPin, Bell, Heart, Clock, Star, Home, ShoppingBag, ArrowLeft, Plus, Minus, User, ChevronRight, Filter, CreditCard, Phone, LogOut, CheckCircle, Package, Bike, HelpCircle, Edit3, Trash2, X, Navigation, Tag, MessageSquare, BarChart2, Users, Settings, PlusCircle, AlertCircle, RefreshCw } from "lucide-react";
+
+const P = "#F97316";
 
 const API = "https://shahfood-backend-production.up.railway.app";
-const SHAHRISABZ = { lat: 39.0593, lon: 66.8487 };
-const BRAND = "#c2622f";
-const BRAND_DARK = "#9c4a1e";
 
-const fmt = n => (n || 0).toLocaleString("uz-UZ") + " so'm";
-const normPhone = p => { const d = String(p || "").replace(/\D/g, ""); return d.startsWith("998") ? d : (d.length === 9 ? "998" + d : d); };
-const haversine = (lat1, lon1, lat2, lon2) => {
-  if (!lat1 || !lat2) return null;
-  const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-  return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
+const api = {
+  get: (path) => fetch(API + path).then(r => r.json()),
+  post: (path, data, token) => fetch(API + path, {
+    method: "POST",
+    headers: {"Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{})},
+    body: JSON.stringify(data)
+  }).then(r => r.json()),
+  patch: (path, data, token) => fetch(API + path, {
+    method: "PATCH",
+    headers: {"Content-Type":"application/json", ...(token?{Authorization:"Bearer "+token}:{})},
+    body: JSON.stringify(data)
+  }).then(r => r.json()),
 };
 
-async function apiCall(path, { method = "GET", body, token } = {}) {
-  const res = await fetch(API + path, {
-    method,
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: body ? JSON.stringify(body) : undefined
+const fmt = n => n.toLocaleString("uz-UZ") + " so'm";
+const haversine = (lat1,lon1,lat2,lon2) => {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return +(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))).toFixed(1);
+};
+
+const SHAHRISABZ = {lat:39.0593, lon:66.8487};
+
+const ALL_REST = [
+  {id:1,name:"Shahrisabz Palace",cats:["uzbek","wedding"],rating:4.8,reviews:247,fee:8000,min:30000,bg:"linear-gradient(145deg,#c27842,#e8a96a)",e:"🏛️",open:true,badge:"Mashhur",lat:39.0601,lon:66.8452,address:"Amir Temur ko'chasi, 12",phone:"+998 97 111 22 33",
+   menuCats:["Birinchi taom","Ikkinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
+   menu:[{id:1,name:"Manti (6 ta)",price:22000,desc:"Qo'zilikli, qaymoq bilan",cat:"Birinchi taom"},{id:2,name:"Somsa (2 ta)",price:10000,desc:"Tandirda pishirilgan",cat:"Birinchi taom"},{id:3,name:"Chuchvara",price:18000,desc:"Qaymoq bilan",cat:"Birinchi taom"},{id:4,name:"Osh (plov)",price:25000,desc:"Qo'zilikli milliy plov",cat:"Ikkinchi taom"},{id:5,name:"Shashlik (4 ta)",price:32000,desc:"Qo'zi go'shtidan",cat:"Ikkinchi taom"},{id:6,name:"Lag'mon",price:18000,desc:"Qo'lda tortilgan",cat:"Ikkinchi taom"},{id:7,name:"Dimlama",price:24000,desc:"Sabzavotli go'sht",cat:"Ikkinchi taom"},{id:8,name:"Mastava",price:15000,desc:"An'anaviy guruchli",cat:"Sho'rvalar"},{id:9,name:"Sho'rva",price:14000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:10,name:"Achichuk",price:10000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:11,name:"Toshkent salati",price:12000,desc:"Mol tili bilan",cat:"Salatlar"},{id:12,name:"Tandir non (2 ta)",price:6000,desc:"Yangi pishirilgan",cat:"Non va garnir"},{id:13,name:"Ko'k choy",price:4000,desc:"An'anaviy",cat:"Ichimliklar"},{id:14,name:"Kompot",price:5000,desc:"Mevali",cat:"Ichimliklar"},{id:15,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"}]},
+  {id:2,name:"Temur Cafe",cats:["cafe","sweet"],rating:4.5,reviews:183,fee:6000,min:20000,bg:"linear-gradient(145deg,#1a6080,#2ba0cc)",e:"☕",open:true,badge:"Tez yetkazma",lat:39.0612,lon:66.8501,address:"Mustaqillik ko'chasi, 7",phone:"+998 90 222 33 44",
+   menuCats:["Kofe","Issiq ichimliklar","Non-pishiriqlar","Shirinliklar","Sovuq ichimliklar"],
+   menu:[{id:1,name:"Espresso",price:8000,desc:"Kuchli, aromatli",cat:"Kofe"},{id:2,name:"Cappuccino",price:12000,desc:"Qaymoqli, issiq",cat:"Kofe"},{id:3,name:"Latte",price:13000,desc:"Yumshoq ta'mli",cat:"Kofe"},{id:4,name:"Americano",price:9000,desc:"Kuchli, suvli",cat:"Kofe"},{id:5,name:"Raf kofe",price:15000,desc:"Qaymoqli, shirin",cat:"Kofe"},{id:6,name:"Choy (dastgoh)",price:7000,desc:"Ko'k yoki qora",cat:"Issiq ichimliklar"},{id:7,name:"Salep",price:10000,desc:"Issiq, foydali",cat:"Issiq ichimliklar"},{id:8,name:"Kakao",price:11000,desc:"Shokoladli",cat:"Issiq ichimliklar"},{id:9,name:"Croissant",price:9000,desc:"Yangi pishirilgan",cat:"Non-pishiriqlar"},{id:10,name:"Muffin",price:8000,desc:"Shokoladli",cat:"Non-pishiriqlar"},{id:11,name:"Cheesecake",price:22000,desc:"Klassik, qulupnaylik",cat:"Shirinliklar"},{id:12,name:"Tiramisu",price:20000,desc:"Italyan deserti",cat:"Shirinliklar"},{id:13,name:"Smoothie",price:14000,desc:"Mango, banan",cat:"Sovuq ichimliklar"},{id:14,name:"Fresh juice",price:12000,desc:"Limon, apelsin",cat:"Sovuq ichimliklar"}]},
+  {id:3,name:"Oq Saroy",cats:["uzbek","wedding"],rating:4.7,reviews:312,fee:10000,min:50000,bg:"linear-gradient(145deg,#6a4f9e,#9a7fd4)",e:"🕌",open:true,badge:"Premium",lat:39.0578,lon:66.8471,address:"Navruz maydoni, 1",phone:"+998 91 333 44 55",
+   menuCats:["Bosh taomlar","Sho'rvalar","Salatlar","To'y to'plamlari","Ichimliklar"],
+   menu:[{id:1,name:"Kabob (6 ta)",price:45000,desc:"Premium qo'zi go'shtdan",cat:"Bosh taomlar"},{id:2,name:"Plov (katta)",price:40000,desc:"4-5 kishiga",cat:"Bosh taomlar"},{id:3,name:"Ko'sa lag'mon",price:28000,desc:"Maxsus sous bilan",cat:"Bosh taomlar"},{id:4,name:"Sho'rva",price:18000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:5,name:"Mastava",price:16000,desc:"Guruchli",cat:"Sho'rvalar"},{id:6,name:"Mol tili salati",price:20000,desc:"Mayiz bilan",cat:"Salatlar"},{id:7,name:"Toshkent salati",price:14000,desc:"Klassik",cat:"Salatlar"},{id:8,name:"Nikoh oshi (10 kishi)",price:250000,desc:"To'yga maxsus",cat:"To'y to'plamlari"},{id:9,name:"Shashlik to'plami (20 ta)",price:150000,desc:"Aralash go'shtlar",cat:"To'y to'plamlari"},{id:10,name:"Limonad",price:8000,desc:"Uy qo'lda",cat:"Ichimliklar"},{id:11,name:"Choy dastgoh",price:5000,desc:"Ko'k yoki qora",cat:"Ichimliklar"}]},
+  {id:4,name:"Pizza House",cats:["pizza","fastfood"],rating:4.3,reviews:156,fee:7000,min:25000,bg:"linear-gradient(145deg,#c44000,#f07020)",e:"🍕",open:true,badge:"Chegirmalar",lat:39.0625,lon:66.8520,address:"Yosh avlod ko'chasi, 15",phone:"+998 93 444 55 66",
+   menuCats:["Pitstalar","Burgerlar","Salatlar","Qo'shimcha","Ichimliklar"],
+   menu:[{id:1,name:"Margarita (30sm)",price:35000,desc:"Mozzarella, klassik",cat:"Pitstalar"},{id:2,name:"Pepperoni (30sm)",price:42000,desc:"Qizil kolbasa",cat:"Pitstalar"},{id:3,name:"BBQ Chicken (35sm)",price:52000,desc:"Barbecue sous bilan",cat:"Pitstalar"},{id:4,name:"4 Cheese (30sm)",price:48000,desc:"To'rt turdagi pishloq",cat:"Pitstalar"},{id:5,name:"Classic Burger",price:22000,desc:"Mol go'sht, salat",cat:"Burgerlar"},{id:6,name:"Chicken Burger",price:24000,desc:"Qovurilgan tovuq",cat:"Burgerlar"},{id:7,name:"Double Smash",price:32000,desc:"Ikki kotlet",cat:"Burgerlar"},{id:8,name:"Cesar salati",price:20000,desc:"Tovuq, krekerlar",cat:"Salatlar"},{id:9,name:"Kartoshka fri (katta)",price:12000,desc:"Sous bilan",cat:"Qo'shimcha"},{id:10,name:"Nuggets (6 ta)",price:14000,desc:"Tovuq, sous",cat:"Qo'shimcha"},{id:11,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"},{id:12,name:"Limonad",price:10000,desc:"Uy qo'lda",cat:"Ichimliklar"}]},
+  {id:5,name:"Shakarchi",cats:["sweet","icecream","cafe"],rating:4.6,reviews:209,fee:5000,min:15000,bg:"linear-gradient(145deg,#b03070,#e060a0)",e:"🍰",open:true,badge:"Eng sevimli",lat:39.0590,lon:66.8510,address:"Ko'k gumbaz ko'chasi, 3",phone:"+998 94 555 66 77",
+   menuCats:["Muzqaymoq","Tortlar","Issiq shirinliklar","Ichimliklar"],
+   menu:[{id:1,name:"Sundae (3 shar)",price:12000,desc:"Vanil, shokolad, qulupnay",cat:"Muzqaymoq"},{id:2,name:"Muzqaymoq kone",price:7000,desc:"Bir shar, tanlov",cat:"Muzqaymoq"},{id:3,name:"Banana Split",price:22000,desc:"Klassik dessert",cat:"Muzqaymoq"},{id:4,name:"Tiramisu",price:22000,desc:"Italyan deserti",cat:"Tortlar"},{id:5,name:"Cheesecake kesmasi",price:20000,desc:"Qulupnaylik sous",cat:"Tortlar"},{id:6,name:"Tort kesmasi",price:18000,desc:"Kunlik assortiment",cat:"Tortlar"},{id:7,name:"Waffle",price:16000,desc:"Meva va qaymoq bilan",cat:"Issiq shirinliklar"},{id:8,name:"Pancake (3 ta)",price:14000,desc:"Asal va qaymoq",cat:"Issiq shirinliklar"},{id:9,name:"Milkshake",price:16000,desc:"Qalin, shirin",cat:"Ichimliklar"},{id:10,name:"Cappuccino",price:12000,desc:"Qaymoqli",cat:"Ichimliklar"}]},
+  {id:6,name:"Choyxona Gavhar",cats:["uzbek","soup"],rating:4.4,reviews:128,fee:6000,min:20000,bg:"linear-gradient(145deg,#0d7a5a,#1ab584)",e:"🫖",open:false,badge:"Halol",lat:39.0570,lon:66.8460,address:"Registon ko'chasi, 22",phone:"+998 99 666 77 88",
+   menuCats:["Birinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
+   menu:[{id:1,name:"Manti (6 ta)",price:16000,desc:"Uy qo'lda",cat:"Birinchi taom"},{id:2,name:"Chuchvara",price:16000,desc:"Qaymoq bilan",cat:"Birinchi taom"},{id:3,name:"Mastava",price:15000,desc:"An'anaviy",cat:"Sho'rvalar"},{id:4,name:"Sho'rva",price:14000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:5,name:"Naryn",price:22000,desc:"Uy qo'lda",cat:"Sho'rvalar"},{id:6,name:"Achichuk",price:9000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:7,name:"Tandirda non (2 ta)",price:6000,desc:"Yangi",cat:"Non va garnir"},{id:8,name:"Ko'k choy",price:4000,desc:"An'anaviy",cat:"Ichimliklar"},{id:9,name:"Kompot",price:5000,desc:"Mevali",cat:"Ichimliklar"},{id:10,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
+  {id:7,name:"Barbekyu King",cats:["bbq","fastfood"],rating:4.5,reviews:174,fee:8000,min:35000,bg:"linear-gradient(145deg,#2a1050,#8a1535)",e:"🔥",open:true,badge:"Kechgacha ochiq",lat:39.0640,lon:66.8530,address:"Yangi hayot ko'chasi, 9",phone:"+998 90 777 88 99",
+   menuCats:["Kabob va shashlik","Burgerlar","Salatlar","Qo'shimcha","Ichimliklar"],
+   menu:[{id:1,name:"Barbekyu to'plami",price:65000,desc:"8 ta shampurda aralash",cat:"Kabob va shashlik"},{id:2,name:"Qo'zi qovurma",price:42000,desc:"Piyoz, ziravorlar",cat:"Kabob va shashlik"},{id:3,name:"Tovuq shashlik (4 ta)",price:35000,desc:"Marinad qilingan",cat:"Kabob va shashlik"},{id:4,name:"Jigar shashlik (4 ta)",price:28000,desc:"Qo'zi jigari",cat:"Kabob va shashlik"},{id:5,name:"BBQ Burger",price:28000,desc:"Shashlik go'shti, lavash",cat:"Burgerlar"},{id:6,name:"Smash Burger",price:32000,desc:"Juicy kotlet",cat:"Burgerlar"},{id:7,name:"Cesar salati",price:18000,desc:"Tovuq, krekerlar",cat:"Salatlar"},{id:8,name:"Kartoshka fri",price:10000,desc:"Sous bilan",cat:"Qo'shimcha"},{id:9,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"},{id:10,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
+  {id:8,name:"Milliy Ta'm",cats:["uzbek"],rating:4.6,reviews:261,fee:7000,min:25000,bg:"linear-gradient(145deg,#2c3a9e,#5a6ee0)",e:"🍲",open:true,badge:"Halol",lat:39.0582,lon:66.8495,address:"Do'stlik ko'chasi, 18",phone:"+998 91 888 99 00",
+   menuCats:["Birinchi taom","Ikkinchi taom","Sho'rvalar","Salatlar","Ichimliklar"],
+   menu:[{id:1,name:"Chuchvara",price:16000,desc:"Qaymoq bilan",cat:"Birinchi taom"},{id:2,name:"Manti (6 ta)",price:20000,desc:"Qo'zilikli",cat:"Birinchi taom"},{id:3,name:"Dimlama",price:24000,desc:"Sabzavotli go'sht",cat:"Ikkinchi taom"},{id:4,name:"Qozon kabob",price:30000,desc:"Qozonda qovurilgan",cat:"Ikkinchi taom"},{id:5,name:"Osh ko'za (2 kishi)",price:38000,desc:"Alohida ko'zalarda",cat:"Ikkinchi taom"},{id:6,name:"Beshbarmak",price:35000,desc:"Qo'zi go'shti, xamir",cat:"Ikkinchi taom"},{id:7,name:"Mastava",price:15000,desc:"Guruchli",cat:"Sho'rvalar"},{id:8,name:"Sho'rva",price:14000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:9,name:"Achichuk",price:10000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:10,name:"Choy",price:4000,desc:"Ko'k yoki qora",cat:"Ichimliklar"},{id:11,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
+  {id:9,name:"Ice Dream",cats:["icecream","sweet"],rating:4.3,reviews:97,fee:5000,min:12000,bg:"linear-gradient(145deg,#3a8ac4,#80c4f0)",e:"🍦",open:true,badge:"Tez yetkazma",lat:39.0608,lon:66.8476,address:"Bahor ko'chasi, 5",phone:"+998 93 999 00 11",
+   menuCats:["Muzqaymoq","Kokteyllar","Shirinliklar"],
+   menu:[{id:1,name:"Sundae (katta)",price:18000,desc:"3 shar + meva + sous",cat:"Muzqaymoq"},{id:2,name:"Kone (1 shar)",price:7000,desc:"Tanlov: vanil, shokolad",cat:"Muzqaymoq"},{id:3,name:"Milkshake vanilli",price:16000,desc:"Qalin, shirin",cat:"Kokteyllar"},{id:4,name:"Strawberry shake",price:17000,desc:"Qulupnaylik",cat:"Kokteyllar"},{id:5,name:"Banana Split",price:22000,desc:"Klassik dessert",cat:"Shirinliklar"},{id:6,name:"Waffle ice cream",price:20000,desc:"Muzqaymoqli",cat:"Shirinliklar"}]},
+  {id:10,name:"Gulshan Oshxonasi",cats:["uzbek","soup"],rating:4.7,reviews:198,fee:6000,min:20000,bg:"linear-gradient(145deg,#4a8a20,#80c040)",e:"🌸",open:true,badge:"Oilaviy",lat:39.0595,lon:66.8465,address:"Ipak yo'li ko'chasi, 33",phone:"+998 97 011 22 33",
+   menuCats:["Birinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
+   menu:[{id:1,name:"Uyg'ur lag'mon",price:20000,desc:"Asl uyg'ur uslubida",cat:"Birinchi taom"},{id:2,name:"Chuchvara",price:16000,desc:"Uy qo'lda, qaymoqli",cat:"Birinchi taom"},{id:3,name:"Somsa (4 ta)",price:18000,desc:"Tandirda pishirilgan",cat:"Birinchi taom"},{id:4,name:"Shurpa",price:15000,desc:"Qo'zilikli, sabzavotli",cat:"Sho'rvalar"},{id:5,name:"Mastava",price:14000,desc:"Guruchli",cat:"Sho'rvalar"},{id:6,name:"Achichuk",price:9000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:7,name:"Tandirda non (2 ta)",price:6000,desc:"Yangi",cat:"Non va garnir"},{id:8,name:"Choy",price:4000,desc:"Ko'k",cat:"Ichimliklar"},{id:9,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
+  {id:11,name:"Mehnat Oshxona",cats:["uzbek","soup"],rating:4.2,reviews:89,fee:5000,min:15000,bg:"linear-gradient(145deg,#8a4020,#c07040)",e:"🥘",open:true,badge:"Arzon",lat:39.0560,lon:66.8490,address:"Mehnat ko'chasi, 44",phone:"+998 90 122 33 44",
+   menuCats:["Birinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
+   menu:[{id:1,name:"Osh",price:18000,desc:"Uy usulida",cat:"Birinchi taom"},{id:2,name:"Lag'mon",price:16000,desc:"Go'shtli",cat:"Birinchi taom"},{id:3,name:"Somsa (1 ta)",price:4000,desc:"Tandirda",cat:"Birinchi taom"},{id:4,name:"Sho'rva",price:12000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:5,name:"Mastava",price:13000,desc:"Guruchli",cat:"Sho'rvalar"},{id:6,name:"Achichuk",price:8000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:7,name:"Tandirda non",price:4000,desc:"1 ta",cat:"Non va garnir"},{id:8,name:"Choy",price:3000,desc:"Ko'k",cat:"Ichimliklar"},{id:9,name:"Ayron",price:5000,desc:"Sovuq",cat:"Ichimliklar"}]},
+  {id:12,name:"Fast Burger",cats:["fastfood"],rating:4.1,reviews:142,fee:6000,min:18000,bg:"linear-gradient(145deg,#c44000,#f07020)",e:"🍔",open:true,badge:"Tezkor",lat:39.0618,lon:66.8508,address:"Sport ko'chasi, 6",phone:"+998 91 233 44 55",
+   menuCats:["Burgerlar","Snacklar","Salatlar","Ichimliklar"],
+   menu:[{id:1,name:"Classic Burger",price:22000,desc:"Mol go'sht, salat, sous",cat:"Burgerlar"},{id:2,name:"Chicken Burger",price:24000,desc:"Qovurilgan tovuq",cat:"Burgerlar"},{id:3,name:"Double Smash",price:32000,desc:"Ikki kotlet",cat:"Burgerlar"},{id:4,name:"Veggie Burger",price:20000,desc:"Sabzavotli",cat:"Burgerlar"},{id:5,name:"Kartoshka fri (katta)",price:12000,desc:"Sous bilan",cat:"Snacklar"},{id:6,name:"Nuggets (6 ta)",price:14000,desc:"Tovuq, sous",cat:"Snacklar"},{id:7,name:"Onion rings",price:10000,desc:"Qovurilgan",cat:"Snacklar"},{id:8,name:"Kolslo",price:9000,desc:"Karam salati",cat:"Salatlar"},{id:9,name:"Cesar salati",price:18000,desc:"Tovuq, krekerlar",cat:"Salatlar"},{id:10,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"},{id:11,name:"Fanta (0.5l)",price:8000,desc:"Apelsinli",cat:"Ichimliklar"},{id:12,name:"Milkshake",price:15000,desc:"Vanil yoki shokolad",cat:"Ichimliklar"}]},
+];
+
+const PROMCODES = {"DASTURXON10":{disc:10,label:"10% chegirma"},"YANGI50":{disc:50,label:"50% yetkazma"},"BIRINCHI":{disc:15,label:"15% chegirma"}};
+const ORDER_STAGES = ["Qabul qilindi","Tayyorlanmoqda","Kuryer yo'lda","Yetkazildi"];
+const STAGE_ICONS = ["✅","👨‍🍳","🛵","🎉"];
+const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","Kuryer yaxshi","Narx mos"];
+const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"O'zbek taomi",e:"🍲"},{id:"fastfood",label:"Tezfud",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Sho'rva",e:"🥣"},{id:"bbq",label:"Barbekyu",e:"🔥"},{id:"icecream",label:"Muzqaymoq",e:"🍦"},{id:"wedding",label:"To'y",e:"🎊"}];
+
+export default function App() {
+  const [view, setView] = useState("splash");
+  const [tab, setTab] = useState("home");
+  const [resto, setResto] = useState(null);
+  const [homeCat, setHomeCat] = useState("all");
+  const [homeQ, setHomeQ] = useState("");
+  const [searchQ, setSearchQ] = useState("");
+  const [favs, setFavs] = useState(new Set([1,5,8]));
+  const [cart, setCart] = useState({});
+  const [menuCat, setMenuCat] = useState("");
+  const [orders, setOrders] = useState([]);
+  const [toasts, setToasts] = useState([]);
+  const [userLoc, setUserLoc] = useState(SHAHRISABZ);
+  const [locLoading, setLocLoading] = useState(false);
+  const [addresses, setAddresses] = useState([{id:1,label:"Uyim",addr:"Amir Temur ko'chasi, 45",lat:39.0593,lon:66.8487,active:true},{id:2,label:"Ishim",addr:"Markaziy maydon, 1",lat:39.0610,lon:66.8500,active:false}]);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState("click");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState(null);
+  const [promoErr, setPromoErr] = useState("");
+  const [noCall, setNoCall] = useState(false);
+  const [courierNote, setCourierNote] = useState("");
+  const [trackingOrder, setTrackingOrder] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(null);
+  const [starRest, setStarRest] = useState(0);
+  const [starCourier, setStarCourier] = useState(0);
+  const [reviewTags, setReviewTags] = useState([]);
+  const [reviewText, setReviewText] = useState("");
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminTab, setAdminTab] = useState("overview");
+  const [restaurants, setRestaurants] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/api/restaurants").then(data => {
+      if(Array.isArray(data)) {
+        setRestaurants(data.map(r => ({
+          ...r,
+          cats: r.category || [],
+          fee: r.delivery_fee,
+          min: r.min_order,
+          bg: r.bg_gradient,
+          e: r.emoji,
+          open: r.is_open,
+          reviews: r.review_count,
+        })));
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+  const [notifOn, setNotifOn] = useState(true);
+  const [sortBy, setSortBy] = useState("distance");
+
+  // ── Real auth (telefon → kod → token) ──
+  const [token, setToken] = useState(() => localStorage.getItem("dx_token"));
+  const isLoggedIn = !!token;
+  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("dx_user")); } catch { return null; } });
+  const userName = user?.name || "";
+  const userPhone = user?.phone ? "+" + user.phone : "";
+  const userBonus = user?.bonus_points || 0;
+
+  const [loginStep, setLoginStep] = useState("phone"); // phone | code
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginCode, setLoginCode] = useState("");
+  const [loginName, setLoginName] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginErr, setLoginErr] = useState("");
+
+  // ── Menyu (bazadan yuklanadi) ──
+  const [menuData, setMenuData] = useState({ categories: [], items: [] });
+  const [menuLoading, setMenuLoading] = useState(false);
+
+  const normPhone = p => { const d = String(p || "").replace(/\D/g, ""); return d.startsWith("998") ? d : (d.length === 9 ? "998" + d : d); };
+
+  const [editProfile, setEditProfile] = useState(false);
+  const timerRef = useRef({});
+
+  // Foydalanuvchini va manzillarini yuklash
+  useEffect(() => {
+    if (!token) return;
+    fetch(API + "/api/auth/me", { headers: { Authorization: "Bearer " + token } })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(me => {
+        setUser(me);
+        localStorage.setItem("dx_user", JSON.stringify(me));
+        if (me.addresses?.length) {
+          setAddresses(me.addresses.map(a => ({ id: a.id, label: a.label || "Manzil", addr: a.address, lat: a.lat, lon: a.lon, active: a.is_active })));
+        }
+      })
+      .catch(() => { localStorage.removeItem("dx_token"); localStorage.removeItem("dx_user"); setToken(null); setUser(null); });
+  }, [token]);
+
+  // Buyurtmalar tarixini yuklash
+  useEffect(() => {
+    if (!token) { setOrders([]); return; }
+    fetch(API + "/api/orders", { headers: { Authorization: "Bearer " + token } })
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setOrders(data.map(o => ({
+        id: o.id,
+        resto: o.restaurants?.name || "—",
+        items: (o.items || []).map(i => `${i.qty}× ${i.name}`).join(", "),
+        total: o.total,
+        stage: o.stage || 0,
+        status: o.status,
+        date: new Date(o.created_at).toLocaleString("uz-UZ", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+      })))).catch(() => {});
+  }, [token]);
+
+  const activeAddr = addresses.find(a=>a.active) || addresses[0];
+
+  const restWithDist = restaurants.map(r=>({...r, dist:haversine(userLoc.lat,userLoc.lon,r.lat,r.lon)}));
+  const sorted = [...restWithDist].sort((a,b)=> sortBy==="distance" ? a.dist-b.dist : sortBy==="rating" ? b.rating-a.rating : a.fee-b.fee);
+  const filteredHome = sorted.filter(r=>{
+    const mc = homeCat==="all" || r.cats.includes(homeCat);
+    const ms = r.name.toLowerCase().includes(homeQ.toLowerCase());
+    return mc && ms;
   });
-  let data = {};
-  try { data = await res.json(); } catch (e) {}
-  if (!res.ok) throw { status: res.status, ...data };
-  return data;
-}
+  const filteredSearch = searchQ.length>0 ? sorted.filter(r=>r.name.toLowerCase().includes(searchQ.toLowerCase()) || r.cats.some(c=>CATS.find(ct=>ct.id===c)?.label.toLowerCase().includes(searchQ.toLowerCase()))) : sorted;
 
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body,#root{height:100%}
-  body{font-family:'Manrope',sans-serif;background:#faf6ef;color:#2b211a;line-height:1.5;
-    background-image:radial-gradient(circle at 1px 1px,rgba(150,110,70,.05) 1px,transparent 0);background-size:24px 24px;}
-  h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;letter-spacing:-.01em}
-  button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
-  button{cursor:pointer;border:none;background:none}
-  input,textarea{outline:none}
-  a{color:inherit;text-decoration:none}
-  .app{max-width:480px;margin:0 auto;min-height:100vh;background:#faf6ef;position:relative;padding-bottom:80px}
-  @media(min-width:640px){.app{box-shadow:0 0 40px rgba(60,40,20,.07)}}
-`;
+  const cartCount = Object.values(cart).reduce((s,v)=>s+v,0);
+  const cartSubtotal = Object.entries(cart).reduce((s,[id,qty])=>{const item=menuData.items.find(m=>m.id===+id);return s+(item?.price||0)*qty;},0);
+  const promoDisc = promoApplied ? Math.round(cartSubtotal*(PROMCODES[promoApplied].disc/100)) : 0;
+  const cartTotal = cartSubtotal - promoDisc + (resto?.fee||0);
 
-/* ---------- UI helpers ---------- */
-function Toast({ msg }) {
-  if (!msg) return null;
-  return <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", background: "#2b211a", color: "#fff", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 9999, maxWidth: "85%", textAlign: "center" }}>{msg}</div>;
-}
+  const addToast = (msg, type="ok") => {
+    const id = Date.now();
+    setToasts(p=>[...p,{id,msg,type}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2500);
+  };
 
-function Header({ title, onBack, search, setSearch }) {
-  return (
-    <div style={{ position: "sticky", top: 0, background: "#faf6ef", zIndex: 50, borderBottom: "1px solid #ece2d4", padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {onBack && (
-          <button onClick={onBack} style={{ padding: 8, marginLeft: -8, borderRadius: 10 }}>
-            <ArrowLeft size={22} />
-          </button>
-        )}
-        {title ? (
-          <h2 style={{ fontSize: 20 }}>{title}</h2>
+  const getLocation = () => {
+    setLocLoading(true);
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        setUserLoc({lat:pos.coords.latitude,lon:pos.coords.longitude});
+        setLocLoading(false);
+        addToast("Manzilingiz aniqlandi ✓");
+      },()=>{setLocLoading(false);addToast("GPS ruxsat berilmadi","err");});
+    } else {
+      setLocLoading(false);addToast("GPS mavjud emas","err");
+    }
+  };
+
+  const openResto = async (r) => {
+    setResto(r); setView("rest"); setCart({});
+    setPromoApplied(null); setPromoErr("");
+    setMenuData({ categories: [], items: [] });
+    setMenuCat("");
+    setMenuLoading(true);
+    try {
+      const m = await api.get(`/api/restaurants/${r.id}/menu`);
+      const cats = (m.categories || []).map(c => c.name);
+      setMenuData({ categories: m.categories || [], items: m.items || [] });
+      if (cats.length) setMenuCat(cats[0]);
+    } catch (e) {}
+    setMenuLoading(false);
+  };
+  const goBack = () => { if(checkoutOpen){setCheckoutOpen(false);return;} setView("main"); };
+  const changeTab = t => { setTab(t); setView("main"); };
+  const toggleFav = (id,e) => {e&&e.stopPropagation();setFavs(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});};
+  const addItem = id => {setCart(p=>({...p,[id]:(p[id]||0)+1}));const it=menuData.items.find(m=>m.id===id);addToast((it?.name||"Taom")+" qo'shildi ✓");};
+  const removeItem = id => setCart(p=>{const n={...p};n[id]>1?n[id]--:delete n[id];return n;});
+
+  const applyPromo = () => {
+    const code = promoCode.trim().toUpperCase();
+    api.post("/api/promo/validate", {code}).then(data => {
+      if(data.valid){setPromoApplied(code);setPromoErr("");addToast(data.description+" 🎉");}
+      else{setPromoErr(data.error||"Noto'g'ri kod");setPromoApplied(null);}
+    }).catch(()=>{setPromoErr("Xatolik");});
+  };
+
+  const estDelivery = r => {
+    const d = r ? haversine(userLoc.lat,userLoc.lon,r.lat,r.lon) : 1;
+    return Math.round(10 + d*8);
+  };
+
+  const placeOrder = () => {
+    if(!isLoggedIn){addToast("Avval tizimga kiring","err");setView("auth");return;}
+    if(cartSubtotal < (resto?.min||0)){addToast("Minimal buyurtma: "+fmt(resto.min),"err");return;}
+    const items = Object.entries(cart).map(([id,qty])=>{
+      const it = menuData.items.find(m=>m.id===+id);
+      return {id:+id, name:it?.name, price:it?.price, qty};
+    });
+    const orderPayload = {
+      restaurant_id: resto.id,
+      items,
+      subtotal:cartSubtotal, discount:promoDisc,
+      delivery_fee:resto.fee||resto.delivery_fee,
+      total:cartTotal,
+      address:activeAddr.addr,
+      lat:activeAddr.lat, lon:activeAddr.lon,
+      payment_method:payMethod,
+      promo_code:promoApplied||undefined,
+      no_call:noCall, courier_note:courierNote,
+      estimated_minutes:estDelivery(resto)
+    };
+    api.post("/api/orders", orderPayload, token).then(apiOrd => {
+      if (apiOrd?.error) { addToast(apiOrd.error, "err"); return; }
+      const ord = {
+        id: apiOrd.id, resto:resto.name, restoId:resto.id, restoE:resto.e, restoBg:resto.bg,
+        items, subtotal:cartSubtotal, discount:promoDisc, fee:resto.fee, total:cartTotal,
+        date:new Date(), status:"Qabul qilindi", stage:0, eta:estDelivery(resto),
+        addr:activeAddr.addr, pay:payMethod, noCall, courierNote,
+        reviewed:false, stageTime:Date.now()
+      };
+      setOrders(prev=>[ord,...prev]);
+      setCart({}); setPromoApplied(null); setPromoCode(""); setCheckoutOpen(false);
+      addToast("Buyurtma qabul qilindi! 🎉");
+      setTrackingOrder(ord.id);
+      setView("tracking");
+    }).catch(()=>{
+      addToast("Buyurtma yuborilmadi", "err");
+    });
+  };
+
+  const submitReview = () => {
+    if(!reviewOpen) return;
+    setOrders(prev=>prev.map(o=>o.id===reviewOpen.id?{...o,reviewed:true,rating:starRest,courierRating:starCourier,reviewTags,reviewText}:o));
+    setRestaurants(prev=>prev.map(r=>{
+      if(r.id===reviewOpen.restoId){
+        const newR = +((r.rating*r.reviews+starRest)/(r.reviews+1)).toFixed(1);
+        return {...r,rating:newR,reviews:r.reviews+1};
+      }
+      return r;
+    }));
+    addToast("Sharhingiz qabul qilindi! Rahmat ⭐");
+    setReviewOpen(null); setStarRest(0); setStarCourier(0); setReviewTags([]); setReviewText("");
+  };
+
+  const menuItems = menuCat ? menuData.items.filter(m => menuData.categories.find(c => c.id === m.category_id)?.name === menuCat) : menuData.items;
+
+  const CSS = `
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    body,#root{font-family:'Nunito','Segoe UI',sans-serif;background:#FFF7ED;margin:0;padding:0;}
+    ::-webkit-scrollbar{display:none;}
+    .hs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+    .cd{transition:transform .15s;cursor:pointer;}
+    .cd:active{transform:scale(.97);}
+    .ob{background:${P};color:white;border:none;border-radius:14px;cursor:pointer;font-family:inherit;font-weight:800;transition:opacity .15s;}
+    .ob:active{opacity:.8;}
+    .ob:disabled{opacity:.5;cursor:not-allowed;}
+    .hb{background:white;border:none;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+    .row{display:flex;align-items:center;}
+    .pr{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #f5e6d8;cursor:pointer;}
+    .pr:active{opacity:.7;}
+    input[type=text],input[type=tel],textarea{border:1.5px solid #e5d5c5;border-radius:12px;padding:10px 14px;font-family:inherit;font-size:14px;outline:none;width:100%;background:white;}
+    input:focus,textarea:focus{border-color:${P};}
+    textarea{resize:none;}
+  `;
+
+  const W = {background:"#FFF7ED",minHeight:"100vh",maxWidth:480,margin:"0 auto",position:"relative",overflowX:"hidden"};
+  const SH = {background:"white",padding:"14px 16px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 12px rgba(0,0,0,.06)"};
+  const BN = {position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f0f0f0",padding:"10px 0 16px",display:"flex",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,.08)"};
+
+  const RestoCard = ({r}) => (
+    <div className="cd" onClick={()=>openResto(r)} style={{background:"white",borderRadius:20,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.08)"}}>
+      <div style={{background:r.bg,height:110,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <span style={{fontSize:42}}>{r.e}</span>
+        {!r.open&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"white",fontWeight:800,fontSize:12,background:"rgba(0,0,0,.4)",padding:"4px 12px",borderRadius:20}}>Yopiq</span></div>}
+        <div style={{position:"absolute",top:8,left:8,background:"rgba(255,255,255,.22)",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,color:"white"}}>{r.badge}</div>
+        <button className="hb" style={{position:"absolute",top:8,right:8}} onClick={e=>toggleFav(r.id,e)}>
+          <Heart size={14} fill={favs.has(r.id)?"#ef4444":"none"} color={favs.has(r.id)?"#ef4444":"#aaa"} strokeWidth={2}/>
+        </button>
+      </div>
+      <div style={{padding:"10px 10px 12px"}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:4,lineHeight:1.2}}>{r.name}</div>
+        <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:5}}>
+          <Star size={11} fill="#fbbf24" color="#fbbf24"/>
+          <span style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>{r.rating}</span>
+          <span style={{fontSize:11,color:"#bbb"}}>({r.reviews})</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <Clock size={11} color="#aaa"/>
+          <span style={{fontSize:11,color:"#888",fontWeight:600}}>{estDelivery(r)} min</span>
+          <span style={{width:3,height:3,background:"#eee",borderRadius:"50%"}}/>
+          <MapPin size={10} color="#aaa"/>
+          <span style={{fontSize:11,color:"#888",fontWeight:600}}>{r.dist} km</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const BottomNav = () => (
+    <div style={BN}>
+      {[{id:"home",icon:Home,label:"Bosh sahifa"},{id:"search",icon:Search,label:"Qidiruv"},{id:"orders",icon:ShoppingBag,label:"Buyurtmalar"},{id:"profile",icon:User,label:"Profil"}].map(({id,icon:Icon,label})=>(
+        <button key={id} onClick={()=>changeTab(id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",position:"relative"}}>
+          <Icon size={22} color={tab===id?P:"#ccc"} strokeWidth={tab===id?2.5:1.8}/>
+          {id==="orders"&&orders.filter(o=>o.stage<3).length>0&&<span style={{position:"absolute",top:0,right:"calc(50% - 18px)",background:"#ef4444",color:"white",fontSize:9,fontWeight:800,width:16,height:16,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>{orders.filter(o=>o.stage<3).length}</span>}
+          <span style={{fontSize:10,fontWeight:700,color:tab===id?P:"#ccc"}}>{label}</span>
+          {tab===id&&<span style={{width:4,height:4,background:P,borderRadius:"50%"}}/>}
+        </button>
+      ))}
+    </div>
+  );
+
+  if(view==="splash") return (
+    <div style={{...W,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
+      <style>{CSS}</style>
+      <div style={{fontSize:72,marginBottom:20}}>🍽️</div>
+      <div style={{fontWeight:900,fontSize:28,color:"#1a1a1a",marginBottom:4}}>Dasturxon</div>
+      <div style={{fontSize:14,color:"#aaa",marginBottom:48}}>Shahrisabz yetkazib berish xizmati</div>
+      <button className="ob" onClick={()=>setView("main")} style={{padding:"16px 48px",fontSize:16,borderRadius:20}}>Boshlash</button>
+    </div>
+  );
+
+  const sendCode = () => {
+    const phone = normPhone(loginPhone);
+    if(phone.length < 12){ setLoginErr("Raqam noto'g'ri"); return; }
+    setLoginLoading(true); setLoginErr("");
+    api.post("/api/auth/send-code", { phone }).then(r => {
+      if(r.error){
+        if(r.need_telegram) setLoginErr("Avval Telegram botda raqamingizni ulashing");
+        else setLoginErr(r.error);
+        return;
+      }
+      setLoginStep("code");
+      addToast(r.channel==="telegram" ? "Kod Telegramga yuborildi ✓" : "Kod yuborildi ✓");
+    }).catch(()=>setLoginErr("Tarmoq xatosi")).finally(()=>setLoginLoading(false));
+  };
+
+  const verifyCode = () => {
+    const phone = normPhone(loginPhone);
+    setLoginLoading(true); setLoginErr("");
+    api.post("/api/auth/verify-code", { phone, code: loginCode, name: loginName||undefined }).then(r => {
+      if(r.error || !r.token){ setLoginErr(r.error||"Kod noto'g'ri"); return; }
+      localStorage.setItem("dx_token", r.token);
+      localStorage.setItem("dx_user", JSON.stringify(r.user));
+      setToken(r.token); setUser(r.user);
+      setLoginStep("phone"); setLoginCode(""); setLoginPhone(""); setLoginName(""); setLoginErr("");
+      setView("main"); addToast(`Xush kelibsiz, ${r.user?.name||""}! 👋`);
+    }).catch(()=>setLoginErr("Tarmoq xatosi")).finally(()=>setLoginLoading(false));
+  };
+
+  if(view==="auth") return (
+    <div style={{...W,padding:"40px 24px"}}>
+      <style>{CSS}</style>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <div style={{fontSize:48,marginBottom:12}}>🍽️</div>
+        <div style={{fontWeight:900,fontSize:24,color:"#1a1a1a"}}>Dasturxon</div>
+        <div style={{fontSize:13,color:"#aaa",marginTop:6}}>{loginStep==="phone" ? "Raqamingizni kiriting" : "Tasdiqlash kodi"}</div>
+      </div>
+
+      {loginStep==="phone" ? (<>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,fontWeight:700,color:"#555",display:"block",marginBottom:6}}>Telefon raqam</label>
+          <input type="tel" value={loginPhone} onChange={e=>setLoginPhone(e.target.value)} placeholder="+998 90 000 00 00" autoFocus/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,fontWeight:700,color:"#555",display:"block",marginBottom:6}}>Ismingiz <span style={{color:"#aaa",fontWeight:500}}>(yangi bo'lsangiz)</span></label>
+          <input type="text" value={loginName} onChange={e=>setLoginName(e.target.value)} placeholder="Abu Bakr"/>
+        </div>
+        <button className="ob" onClick={sendCode} disabled={loginLoading} style={{width:"100%",padding:"15px",fontSize:15,borderRadius:16,marginTop:8,opacity:loginLoading?0.6:1}}>
+          {loginLoading ? "Yuborilmoqda…" : "Kod yuborish →"}
+        </button>
+        <div style={{fontSize:12,color:"#aaa",textAlign:"center",marginTop:14,lineHeight:1.5}}>
+          Kod Telegram orqali keladi.<br/>
+          Hali botda ro'yxatdan o'tmaganmisiz? <a href="https://t.me/dasturxon_app_bot" target="_blank" rel="noreferrer" style={{color:P,fontWeight:800,textDecoration:"none"}}>@dasturxon_app_bot</a>
+        </div>
+      </>) : (<>
+        <div style={{marginBottom:14,fontSize:13,color:"#555",textAlign:"center"}}>
+          <b>+{normPhone(loginPhone)}</b> raqamiga Telegramda 6 xonali kod yuborildi
+        </div>
+        <input type="text" inputMode="numeric" value={loginCode} onChange={e=>setLoginCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="123456" autoFocus
+          style={{width:"100%",padding:"18px 14px",fontSize:24,textAlign:"center",letterSpacing:6,fontWeight:800,borderRadius:16,border:"1px solid #eadcc8",background:"#fffaf3",marginBottom:14}}/>
+        <button className="ob" onClick={verifyCode} disabled={loginLoading||loginCode.length!==6} style={{width:"100%",padding:"15px",fontSize:15,borderRadius:16,opacity:(loginLoading||loginCode.length!==6)?0.6:1}}>
+          {loginLoading ? "Tekshirilmoqda…" : "Kirish →"}
+        </button>
+        <button onClick={()=>{setLoginStep("phone");setLoginCode("");setLoginErr("");}} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:16,border:"none",background:"transparent",fontSize:13,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>
+          ← Raqamni o'zgartirish
+        </button>
+      </>)}
+
+      {loginErr && <div style={{marginTop:14,fontSize:13,color:"#ef4444",textAlign:"center",fontWeight:700}}>{loginErr}</div>}
+
+      <button onClick={()=>setView("main")} style={{width:"100%",marginTop:14,padding:"12px",borderRadius:16,border:"none",background:"transparent",fontSize:14,color:"#aaa",cursor:"pointer",fontFamily:"inherit"}}>
+        Keyinroq
+      </button>
+    </div>
+  );
+
+  if(view==="tracking") {
+    const ord = orders.find(o=>o.id===trackingOrder);
+    if(!ord) return null;
+    const pct = Math.round((ord.stage/(ORDER_STAGES.length-1))*100);
+    return (
+      <div style={W}>
+        <style>{CSS}</style>
+        <div style={SH}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={()=>setView("main")} style={{background:"#FFF0E5",border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><ArrowLeft size={20} color="#1a1a1a"/></button>
+            <span style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>Buyurtma kuzatuv</span>
+          </div>
+        </div>
+        <div style={{padding:"20px 16px 100px"}}>
+          <div style={{background:ord.restoBg,borderRadius:20,padding:"20px",marginBottom:20,textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:8}}>{STAGE_ICONS[ord.stage]}</div>
+            <div style={{color:"white",fontWeight:900,fontSize:18,marginBottom:4}}>{ORDER_STAGES[ord.stage]}</div>
+            {ord.stage<3&&<div style={{color:"rgba(255,255,255,.8)",fontSize:13}}>~{ord.eta - ord.stage*8} daqiqa qoldi</div>}
+          </div>
+          <div style={{background:"white",borderRadius:20,padding:"20px",marginBottom:16,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                <span style={{fontSize:13,color:"#888"}}>Holat</span>
+                <span style={{fontSize:13,fontWeight:800,color:P}}>{pct}%</span>
+              </div>
+              <div style={{background:"#f5e6d8",borderRadius:20,height:8,overflow:"hidden"}}>
+                <div style={{background:P,width:pct+"%",height:"100%",borderRadius:20,transition:"width 1s ease"}}/>
+              </div>
+            </div>
+            {ORDER_STAGES.map((s,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:i<ORDER_STAGES.length-1?12:0}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:i<=ord.stage?"#FFF0E5":"#f5f5f5",border:`2px solid ${i<=ord.stage?P:"#e5e5e5"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14}}>
+                  {i<=ord.stage?STAGE_ICONS[i]:"○"}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:i<=ord.stage?800:600,fontSize:14,color:i<=ord.stage?"#1a1a1a":"#aaa"}}>{s}</div>
+                  {i===ord.stage&&<div style={{fontSize:11,color:"#aaa",marginTop:2}}>Hozir...</div>}
+                </div>
+                {i<ord.stage&&<CheckCircle size={18} color="#22c55e"/>}
+              </div>
+            ))}
+          </div>
+          <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:16,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>📋 Buyurtma tafsiloti</div>
+            {ord.items.map((it,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:13,color:"#555"}}>{it.name} × {it.qty}</span>
+                <span style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{fmt(it.price*it.qty)}</span>
+              </div>
+            ))}
+            <div style={{borderTop:"1px solid #f5e6d8",marginTop:10,paddingTop:10}}>
+              {ord.discount>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,color:"#22c55e"}}>Chegirma</span><span style={{fontSize:13,color:"#22c55e"}}>-{fmt(ord.discount)}</span></div>}
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,color:"#888"}}>Yetkazma</span><span style={{fontSize:13,color:"#888"}}>{fmt(ord.fee)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:800,fontSize:14}}>Jami</span><span style={{fontWeight:900,fontSize:16,color:P}}>{fmt(ord.total)}</span></div>
+            </div>
+          </div>
+          {ord.stage===3&&!ord.reviewed&&(
+            <button className="ob" onClick={()=>{setReviewOpen(ord);setStarRest(0);setStarCourier(0);setReviewTags([]);setReviewText("");}} style={{width:"100%",padding:"15px",fontSize:15,borderRadius:16}}>
+              ⭐ Buyurtmani baholang
+            </button>
+          )}
+          {ord.stage===3&&ord.reviewed&&(
+            <div style={{textAlign:"center",padding:"16px",background:"#dcfce7",borderRadius:16,color:"#16a34a",fontWeight:700}}>
+              ✓ Sharhingiz qabul qilindi. Rahmat!
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if(view==="rest" && resto) {
+    const r = restWithDist.find(x=>x.id===resto.id)||resto;
+    return (
+      <div style={W}>
+        <style>{CSS}</style>
+        {checkoutOpen ? (
+          <div style={{padding:"0 0 100px"}}>
+            <div style={SH}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <button onClick={()=>setCheckoutOpen(false)} style={{background:"#FFF0E5",border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><ArrowLeft size={20} color="#1a1a1a"/></button>
+                <span style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>Buyurtmani rasmiylashtirish</span>
+              </div>
+            </div>
+            <div style={{padding:"16px"}}>
+              <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+                <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>📍 Yetkazish manzili</div>
+                {addresses.map(a=>(
+                  <div key={a.id} onClick={()=>setAddresses(prev=>prev.map(x=>({...x,active:x.id===a.id})))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f5e6d8",cursor:"pointer"}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:a.active?"#FFF0E5":"#f5f5f5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <MapPin size={16} color={a.active?P:"#aaa"}/>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{a.label}</div>
+                      <div style={{fontSize:12,color:"#aaa"}}>{a.addr}</div>
+                    </div>
+                    {a.active&&<CheckCircle size={18} color={P}/>}
+                  </div>
+                ))}
+                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:8,marginTop:10,background:"none",border:"none",cursor:"pointer",color:P,fontFamily:"inherit",fontWeight:700,fontSize:13}}>
+                  <Navigation size={14}/> {locLoading?"Aniqlanmoqda...":"GPS bilan manzil aniqlash"}
+                </button>
+              </div>
+              <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+                <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>💳 To'lov usuli</div>
+                {[{id:"click",label:"Click",e:"💳"},{id:"payme",label:"Payme",e:"📱"},{id:"cash",label:"Naqd pul",e:"💵"}].map(m=>(
+                  <div key={m.id} onClick={()=>setPayMethod(m.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f5e6d8",cursor:"pointer"}}>
+                    <span style={{fontSize:20}}>{m.e}</span>
+                    <span style={{flex:1,fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{m.label}</span>
+                    {payMethod===m.id&&<CheckCircle size={18} color={P}/>}
+                  </div>
+                ))}
+              </div>
+              <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+                <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>🎁 Promo kod</div>
+                <div style={{display:"flex",gap:8}}>
+                  <input type="text" value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder="DASTURXON10" style={{flex:1}}/>
+                  <button className="ob" onClick={applyPromo} style={{padding:"10px 14px",borderRadius:12,fontSize:13}}>Qo'llanish</button>
+                </div>
+                {promoErr&&<div style={{fontSize:12,color:"#ef4444",marginTop:6}}>{promoErr}</div>}
+                {promoApplied&&<div style={{fontSize:12,color:"#22c55e",marginTop:6}}>✓ {PROMCODES[promoApplied].label}</div>}
+                <div style={{fontSize:11,color:"#bbb",marginTop:6}}>Kodlar: DASTURXON10 · YANGI50 · BIRINCHI</div>
+              </div>
+              <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+                <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>📝 Kuryer uchun izoh</div>
+                <textarea value={courierNote} onChange={e=>setCourierNote(e.target.value)} placeholder="Qavat, eshik kodi, qo'ng'iroq qiling..." rows={2} style={{width:"100%"}}/>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,cursor:"pointer"}} onClick={()=>setNoCall(!noCall)}>
+                  <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${noCall?P:"#ddd"}`,background:noCall?"#FFF0E5":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    {noCall&&<CheckCircle size={12} color={P}/>}
+                  </div>
+                  <span style={{fontSize:13,color:"#555"}}>Qo'ng'iroq qilmaslik (faqat SMS)</span>
+                </div>
+              </div>
+              <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:80,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+                <div style={{fontWeight:800,fontSize:15,marginBottom:10,color:"#1a1a1a"}}>🧾 Hisob</div>
+                {Object.entries(cart).map(([id,qty])=>{const it=menuData.items.find(m=>m.id===+id);return it?(<div key={id} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,color:"#555"}}>{it.name} × {qty}</span><span style={{fontSize:13,fontWeight:700}}>{fmt(it.price*qty)}</span></div>):null;})}
+                <div style={{borderTop:"1px solid #f5e6d8",marginTop:10,paddingTop:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,color:"#888"}}>Mahsulotlar</span><span style={{fontSize:13}}>{fmt(cartSubtotal)}</span></div>
+                  {promoDisc>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,color:"#22c55e"}}>Chegirma</span><span style={{fontSize:13,color:"#22c55e"}}>-{fmt(promoDisc)}</span></div>}
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,color:"#888"}}>Yetkazma</span><span style={{fontSize:13}}>{fmt(r.fee)}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:800,fontSize:15}}>Jami</span><span style={{fontWeight:900,fontSize:18,color:P}}>{fmt(cartTotal)}</span></div>
+                </div>
+              </div>
+            </div>
+            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
+              <button className="ob" onClick={placeOrder} style={{width:"100%",padding:"15px 20px",fontSize:15,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
+                Buyurtma berish — {fmt(cartTotal)}
+              </button>
+            </div>
+          </div>
         ) : (
           <>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 22, fontWeight: 600, color: BRAND }}>Dastur<span style={{ color: "#d99a2b" }}>xon</span></div>
-            <div style={{ flex: 1, position: "relative", marginLeft: 8 }}>
-              <Search size={18} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#8a7a6b" }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Restoran qidirish…"
-                style={{ width: "100%", padding: "10px 12px 10px 38px", border: "1px solid #ece2d4", borderRadius: 22, background: "#fffdf9", fontSize: 14 }}
-              />
+            <div style={{background:r.bg,height:200,position:"relative",display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:20}}>
+              <button onClick={goBack} style={{position:"absolute",top:16,left:16,background:"rgba(255,255,255,.9)",border:"none",borderRadius:12,width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><ArrowLeft size={20} color="#1a1a1a"/></button>
+              <button onClick={e=>toggleFav(r.id,e)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,.9)",border:"none",borderRadius:12,width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><Heart size={18} fill={favs.has(r.id)?"#ef4444":"none"} color={favs.has(r.id)?"#ef4444":"#555"}/></button>
+              <span style={{fontSize:64}}>{r.e}</span>
             </div>
+            <div style={{background:"white",padding:"18px 16px 14px",boxShadow:"0 4px 20px rgba(0,0,0,.07)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                <div>
+                  <h2 style={{margin:"0 0 6px",fontWeight:900,fontSize:20,color:"#1a1a1a"}}>{r.name}</h2>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:4,background:"#FFF0E5",padding:"4px 10px",borderRadius:20}}>
+                      <Star size={12} fill="#fbbf24" color="#fbbf24"/><span style={{fontWeight:800,fontSize:12,color:"#1a1a1a"}}>{r.rating}</span><span style={{fontSize:11,color:"#aaa"}}>({r.reviews})</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,background:"#f3f4f6",padding:"4px 10px",borderRadius:20}}>
+                      <Clock size={12} color="#888"/><span style={{fontWeight:700,fontSize:12,color:"#555"}}>{estDelivery(r)} min</span>
+                    </div>
+                    <div style={{background:r.open?"#dcfce7":"#fee2e2",padding:"4px 10px",borderRadius:20}}>
+                      <span style={{fontWeight:700,fontSize:12,color:r.open?"#16a34a":"#dc2626"}}>{r.open?"✓ Ochiq":"✕ Yopiq"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:10,fontSize:12,color:"#888"}}>
+                <MapPin size={12} color={P}/><span>{r.address}</span><span style={{marginLeft:8}}><Phone size={12} color={P}/></span><span style={{marginLeft:4}}>{r.phone}</span>
+              </div>
+              {!r.open&&<div style={{background:"#fee2e2",borderRadius:12,padding:"8px 12px",fontSize:12,color:"#dc2626",fontWeight:700,marginBottom:10}}>⚠️ Ushbu restoran hozir yopiq. Keyinroq buyurtma bering.</div>}
+              {cartSubtotal>0&&cartSubtotal<r.min&&<div style={{background:"#fff3cd",borderRadius:12,padding:"8px 12px",fontSize:12,color:"#92660a",fontWeight:700,marginBottom:10}}>⚠️ Minimal buyurtma: {fmt(r.min)}. Yana {fmt(r.min-cartSubtotal)} qo'shing.</div>}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                {[["Yetkazma",fmt(r.fee)],["Min.",fmt(r.min)],[r.dist+" km","masofasi"]].map(([l,v])=>(
+                  <div key={l} style={{background:"#fafafa",borderRadius:12,padding:"8px",textAlign:"center"}}>
+                    <div style={{fontSize:10,color:"#bbb",fontWeight:600,marginBottom:2}}>{v}</div>
+                    <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a"}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{background:"white",borderBottom:"1px solid #f5e6d8",padding:"12px 0 0"}}>
+              <div className="hs" style={{padding:"0 16px 12px"}}>
+                {menuData.categories.map(c=>(
+                  <button key={c.id} onClick={()=>setMenuCat(c.name)} style={{flexShrink:0,padding:"8px 16px",borderRadius:20,border:"none",fontFamily:"inherit",fontWeight:700,fontSize:13,cursor:"pointer",transition:"all .15s",background:menuCat===c.name?P:"#f5f5f5",color:menuCat===c.name?"white":"#666"}}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{padding:"12px 16px 130px"}}>
+              {menuLoading ? (
+                <div style={{textAlign:"center",padding:"40px 0",color:"#aaa",fontWeight:700}}>Menyu yuklanmoqda…</div>
+              ) : menuData.items.length === 0 ? (
+                <div style={{textAlign:"center",padding:"40px 0",color:"#aaa"}}><div style={{fontSize:48,marginBottom:12}}>🍽️</div><div style={{fontWeight:700,fontSize:15}}>Bu restoranda hozircha menyu qo'shilmagan</div></div>
+              ) : (<>
+              <div style={{fontWeight:800,fontSize:16,color:"#1a1a1a",marginBottom:12}}>{menuCat} <span style={{color:"#bbb",fontSize:13,fontWeight:600}}>({menuItems.length} ta)</span></div>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {menuItems.map(item=>{
+                  const qty=cart[item.id]||0;
+                  return (
+                    <div key={item.id} style={{background:"white",borderRadius:16,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                      {item.image_url ? (
+                        <img src={item.image_url} alt="" style={{width:58,height:58,borderRadius:12,objectFit:"cover",flexShrink:0}}/>
+                      ) : (
+                        <div style={{background:r.bg,width:58,height:58,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:24}}>{r.e}</div>
+                      )}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:2,lineHeight:1.3}}>{item.name}</div>
+                        <div style={{fontSize:11,color:"#aaa",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.description||""}</div>
+                        <div style={{fontWeight:900,fontSize:14,color:P}}>{fmt(item.price)}</div>
+                      </div>
+                      <div style={{flexShrink:0}}>
+                        {qty===0?(
+                          <button className="ob" style={{width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>addItem(item.id)} disabled={!r.open}>
+                            <Plus size={16} color="white"/>
+                          </button>
+                        ):(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <button onClick={()=>removeItem(item.id)} style={{width:30,height:30,borderRadius:10,background:"#f3f4f6",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Minus size={14} color="#555"/></button>
+                            <span style={{fontWeight:900,fontSize:14,color:"#1a1a1a",minWidth:16,textAlign:"center"}}>{qty}</span>
+                            <button className="ob" style={{width:30,height:30,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>addItem(item.id)}><Plus size={14} color="white"/></button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              </>)}
+            </div>
+            {cartCount>0&&(
+              <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
+                <button className="ob" onClick={()=>setCheckoutOpen(true)} style={{width:"100%",padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:14,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
+                  <div style={{background:"rgba(255,255,255,.25)",borderRadius:10,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:13}}>{cartCount}</div>
+                  <span>Savatga o'tish</span>
+                  <span>{fmt(cartSubtotal)}</span>
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function BottomNav({ tab, setTab }) {
-  const items = [
-    { k: "home", icon: Home, label: "Bosh" },
-    { k: "search", icon: Search, label: "Qidiruv" },
-    { k: "orders", icon: Package, label: "Buyurtmalar" },
-    { k: "profile", icon: User, label: "Profil" }
-  ];
-  return (
-    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fffdf9", borderTop: "1px solid #ece2d4", padding: "8px 0 calc(8px + env(safe-area-inset-bottom))", zIndex: 100 }}>
-      <div style={{ maxWidth: 480, margin: "0 auto", display: "flex" }}>
-        {items.map(({ k, icon: Icon, label }) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "6px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: tab === k ? BRAND : "#8a7a6b" }}>
-            <Icon size={22} strokeWidth={tab === k ? 2.4 : 1.8} />
-            <span style={{ fontSize: 11, fontWeight: 700 }}>{label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Home / Restaurants list ---------- */
-function RestaurantsList({ restaurants, userLoc, onOpen, search, setSearch }) {
-  const filtered = restaurants
-    .map(r => ({ ...r, dist: userLoc ? haversine(userLoc.lat, userLoc.lon, r.lat, r.lon) : null }))
-    .filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => (a.dist || 999) - (b.dist || 999));
-
-  return (
-    <>
-      <Header search={search} setSearch={setSearch} />
-      <div style={{ padding: "16px 16px 20px" }}>
-        <h1 style={{ fontSize: 26, marginBottom: 4 }}>Shahrisabz<span style={{ color: BRAND }}>.</span></h1>
-        <div style={{ color: "#8a7a6b", fontSize: 14, fontWeight: 500, marginBottom: 20 }}>Eng yaxshi taomlar — eshigingiz oldida</div>
-
-        {!filtered.length && (
-          <div style={{ textAlign: "center", padding: 40, color: "#8a7a6b" }}>Restoran topilmadi</div>
-        )}
-
-        <div style={{ display: "grid", gap: 14 }}>
-          {filtered.map(r => (
-            <button key={r.id} onClick={() => onOpen(r)}
-              style={{ textAlign: "left", background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 18, overflow: "hidden", boxShadow: "0 1px 2px rgba(60,40,20,.04),0 8px 20px rgba(60,40,20,.04)", opacity: r.is_open === false ? 0.55 : 1 }}>
-              <div style={{ background: r.bg_gradient || `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`, height: 110, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56, position: "relative" }}>
-                <span>{r.emoji || "🍽️"}</span>
-                {r.badge && <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(255,255,255,.92)", color: "#2b211a", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{r.badge}</div>}
-                {r.is_open === false && <div style={{ position: "absolute", top: 10, right: 10, background: "#c0392b", color: "#fff", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>Yopiq</div>}
-              </div>
-              <div style={{ padding: "12px 14px 14px" }}>
-                <div style={{ fontFamily: "'Fraunces',serif", fontSize: 19, fontWeight: 600, marginBottom: 4 }}>{r.name}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#8a7a6b", fontWeight: 500 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Star size={14} fill="#d99a2b" stroke="#d99a2b" /> {r.rating || "—"}</span>
-                  <span>·</span>
-                  <span>{fmt(r.delivery_fee)} yetkazma</span>
-                  {r.dist != null && (<><span>·</span><span>{r.dist} km</span></>)}
-                </div>
-              </div>
+  if(adminOpen) {
+    const totalOrders = orders.length;
+    const totalRev = orders.reduce((s,o)=>s+o.total,0);
+    const activeOrds = orders.filter(o=>o.stage<3).length;
+    return (
+      <div style={W}>
+        <style>{CSS}</style>
+        <div style={{background:"#1a1a2e",padding:"16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{color:"white",fontWeight:900,fontSize:18}}>⚙️ Admin Panel</div>
+          <button onClick={()=>setAdminOpen(false)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><X size={18} color="white"/></button>
+        </div>
+        <div className="hs" style={{background:"#1a1a2e",padding:"0 16px 16px",gap:6}}>
+          {[["overview","📊","Ko'rsatkich"],["orders","📦","Buyurtmalar"],["restaurants","🍽️","Restoranlar"],["promos","🎁","Promokodlar"]].map(([t,e,l])=>(
+            <button key={t} onClick={()=>setAdminTab(t)} style={{flexShrink:0,padding:"8px 14px",borderRadius:20,border:"none",fontFamily:"inherit",fontWeight:700,fontSize:12,cursor:"pointer",background:adminTab===t?"white":"rgba(255,255,255,.12)",color:adminTab===t?"#1a1a2e":"white"}}>
+              {e} {l}
             </button>
           ))}
         </div>
+        <div style={{padding:"16px 16px 40px"}}>
+          {adminTab==="overview"&&(
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+                {[[totalOrders,"Jami buyurtma","📦"],[activeOrds,"Faol buyurtma","🔄"],[fmt(totalRev),"Jami daromad","💰"],[restaurants.length,"Restoranlar","🍽️"]].map(([v,l,e])=>(
+                  <div key={l} style={{background:"white",borderRadius:16,padding:"14px",boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                    <div style={{fontSize:24,marginBottom:4}}>{e}</div>
+                    <div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>{v}</div>
+                    <div style={{fontSize:11,color:"#aaa",fontWeight:600}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>So'nggi buyurtmalar</div>
+                {orders.slice(0,5).map(o=>(
+                  <div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #f5e6d8"}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{o.resto}</div>
+                      <div style={{fontSize:11,color:"#aaa"}}>{o.items.length} ta mahsulot</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontWeight:800,fontSize:13,color:P}}>{fmt(o.total)}</div>
+                      <div style={{fontSize:11,background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,padding:"2px 8px",borderRadius:20,fontWeight:700}}>{ORDER_STAGES[o.stage]}</div>
+                    </div>
+                  </div>
+                ))}
+                {orders.length===0&&<div style={{textAlign:"center",color:"#aaa",fontSize:13,padding:"20px 0"}}>Hali buyurtmalar yo'q</div>}
+              </div>
+            </>
+          )}
+          {adminTab==="orders"&&(
+            <div>
+              {orders.map(o=>(
+                <div key={o.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                    <div>
+                      <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{o.resto}</div>
+                      <div style={{fontSize:11,color:"#aaa"}}>{o.date.toLocaleDateString()} {o.date.toLocaleTimeString("uz-UZ",{hour:"2-digit",minute:"2-digit"})}</div>
+                    </div>
+                    <span style={{background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{ORDER_STAGES[o.stage]}</span>
+                  </div>
+                  <div style={{fontSize:12,color:"#555",marginBottom:6}}>{o.items.map(i=>i.name+"×"+i.qty).join(", ")}</div>
+                  <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:"#888"}}>📍 {o.addr}</span><span style={{fontWeight:900,fontSize:14,color:P}}>{fmt(o.total)}</span></div>
+                </div>
+              ))}
+              {orders.length===0&&<div style={{textAlign:"center",color:"#aaa",fontSize:14,padding:"40px 0"}}>Hali buyurtmalar yo'q</div>}
+            </div>
+          )}
+          {adminTab==="restaurants"&&(
+            <div>
+              {restaurants.map(r=>(
+                <div key={r.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{background:r.bg,width:48,height:48,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:22}}>{r.e}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{r.name}</div>
+                    <div style={{fontSize:12,color:"#aaa"}}>{r.address}</div>
+                    <div style={{display:"flex",gap:6,marginTop:4}}>
+                      <span style={{fontSize:11,color:"#888"}}>⭐ {r.rating}</span>
+                      <span style={{fontSize:11,color:"#888"}}>· {r.reviews} sharh</span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+                    <button onClick={()=>setRestaurants(prev=>prev.map(x=>x.id===r.id?{...x,open:!x.open}:x))} style={{background:r.open?"#dcfce7":"#fee2e2",border:"none",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:r.open?"#16a34a":"#dc2626",cursor:"pointer",fontFamily:"inherit"}}>
+                      {r.open?"Ochiq":"Yopiq"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {adminTab==="promos"&&(
+            <div>
+              <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:14}}>Faol promo kodlar</div>
+              {Object.entries(PROMCODES).map(([code,info])=>(
+                <div key={code} style={{background:"white",borderRadius:16,padding:"14px 16px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontWeight:900,fontSize:16,color:P}}>{code}</div>
+                    <div style={{fontSize:12,color:"#888",marginTop:2}}>{info.label} · {info.disc}% chegirma</div>
+                  </div>
+                  <div style={{background:"#dcfce7",color:"#16a34a",fontWeight:700,fontSize:12,padding:"4px 12px",borderRadius:20}}>Faol</div>
+                </div>
+              ))}
+              <button className="ob" onClick={()=>addToast("Yangi kod qo'shish tez orada!")} style={{width:"100%",padding:"13px",fontSize:14,borderRadius:14,marginTop:6}}>
+                + Yangi promo kod
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </>
-  );
-}
-
-/* ---------- Restaurant detail with menu ---------- */
-function RestaurantDetail({ restaurant, onBack, cart, addToCart, removeFromCart, onCheckout }) {
-  const [menu, setMenu] = useState({ categories: [], items: [] });
-  const [loading, setLoading] = useState(true);
-  const [activeCat, setActiveCat] = useState(null);
-
-  useEffect(() => {
-    apiCall(`/api/restaurants/${restaurant.id}/menu`).then(d => {
-      setMenu(d);
-      if (d.categories?.length) setActiveCat(d.categories[0].id);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [restaurant.id]);
-
-  const cartItems = Object.values(cart).filter(c => c.restaurantId === restaurant.id);
-  const cartTotal = cartItems.reduce((s, c) => s + c.price * c.qty, 0);
-
-  const filteredItems = activeCat ? menu.items.filter(i => i.category_id === activeCat) : menu.items;
+    );
+  }
 
   return (
-    <>
-      <div style={{ background: restaurant.bg_gradient || `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`, padding: "18px 16px 24px", color: "#fff", position: "relative" }}>
-        <button onClick={onBack} style={{ padding: 8, marginLeft: -8, borderRadius: 10, color: "#fff" }}><ArrowLeft size={22} /></button>
-        <div style={{ fontSize: 50, marginTop: 8 }}>{restaurant.emoji}</div>
-        <h1 style={{ fontSize: 28, color: "#fff", marginTop: 4 }}>{restaurant.name}</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, marginTop: 8, opacity: 0.95, fontWeight: 600 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Star size={14} fill="#fff" /> {restaurant.rating || "—"}</span>
-          <span>·</span><span>{fmt(restaurant.delivery_fee)} yetkazma</span>
-          <span>·</span><span>Min {fmt(restaurant.min_order)}</span>
-        </div>
-        {restaurant.address && <div style={{ fontSize: 12, marginTop: 6, opacity: 0.85, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={12} /> {restaurant.address}</div>}
-      </div>
+    <div style={W}>
+      <style>{CSS}</style>
 
-      {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#8a7a6b" }}>Menyu yuklanmoqda…</div>
-      ) : !menu.items?.length ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#8a7a6b" }}>Bu restoranda hozircha menyu qo'shilmagan 🍽️</div>
-      ) : (
+      {toasts.map(t=>(
+        <div key={t.id} style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",background:t.type==="err"?"#dc2626":"#1a1a2e",color:"white",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:700,zIndex:9999,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,.3)",transition:"all .3s"}}>
+          {t.msg}
+        </div>
+      ))}
+
+      {reviewOpen&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:"white",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:480}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>Buyurtmani baholang</div>
+              <button onClick={()=>setReviewOpen(null)} style={{background:"#f5f5f5",border:"none",borderRadius:10,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><X size={18}/></button>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:14,color:"#555",marginBottom:8}}>Restoran ({reviewOpen.resto})</div>
+              <div style={{display:"flex",gap:8}}>
+                {[1,2,3,4,5].map(s=><button key={s} onClick={()=>setStarRest(s)} style={{background:"none",border:"none",cursor:"pointer",fontSize:28,opacity:s<=starRest?1:0.25}}>⭐</button>)}
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:14,color:"#555",marginBottom:8}}>Kuryer</div>
+              <div style={{display:"flex",gap:8}}>
+                {[1,2,3,4,5].map(s=><button key={s} onClick={()=>setStarCourier(s)} style={{background:"none",border:"none",cursor:"pointer",fontSize:28,opacity:s<=starCourier?1:0.25}}>⭐</button>)}
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:14,color:"#555",marginBottom:8}}>Tezkor teglar</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {REVIEW_TAGS.map(t=>(
+                  <button key={t} onClick={()=>setReviewTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])}
+                    style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${reviewTags.includes(t)?P:"#e5e5e5"}`,background:reviewTags.includes(t)?"#FFF0E5":"white",color:reviewTags.includes(t)?P:"#555",fontFamily:"inherit",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:20}}>
+              <textarea value={reviewText} onChange={e=>setReviewText(e.target.value)} placeholder="Batafsil fikr (ixtiyoriy)..." rows={2} style={{width:"100%"}}/>
+            </div>
+            <button className="ob" onClick={submitReview} disabled={!starRest} style={{width:"100%",padding:"14px",fontSize:15,borderRadius:16}}>
+              Yuborish ⭐
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tab==="home"&&(
         <>
-          {/* Category tabs */}
-          <div style={{ position: "sticky", top: 0, background: "#faf6ef", zIndex: 40, borderBottom: "1px solid #ece2d4", padding: "10px 0" }}>
-            <div style={{ display: "flex", gap: 8, padding: "0 16px", overflowX: "auto", scrollbarWidth: "none" }}>
-              {menu.categories.map(c => (
-                <button key={c.id} onClick={() => setActiveCat(c.id)}
-                  style={{ padding: "7px 14px", borderRadius: 20, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap",
-                    background: activeCat === c.id ? BRAND : "#fffdf9",
-                    color: activeCat === c.id ? "#fff" : "#2b211a",
-                    border: activeCat === c.id ? "none" : "1px solid #ece2d4" }}>
-                  {c.name}
+          <div style={SH}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:4,color:"#888",fontSize:12,marginBottom:2}}>
+                  <MapPin size={12} color={P} strokeWidth={2.5}/>
+                  <span>{activeAddr.label}</span>
+                </div>
+                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
+                  <span style={{fontWeight:900,fontSize:16,color:"#1a1a1a"}}>{activeAddr.addr.substring(0,20)}...</span>
+                  {locLoading?<RefreshCw size={14} color={P}/>:<ChevronRight size={15} color="#aaa"/>}
+                </button>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setAdminOpen(true)} style={{background:"#f5f0eb",border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                  <Settings size={17} color="#888"/>
+                </button>
+                <button onClick={()=>changeTab("profile")} style={{background:P,border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                  <User size={18} color="white"/>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{padding:"14px 16px 4px"}}>
+            <div style={{display:"flex",gap:10}}>
+              <div style={{flex:1,display:"flex",alignItems:"center",gap:10,background:"white",borderRadius:16,padding:"12px 16px",boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
+                <Search size={18} color="#ccc"/>
+                <input type="text" value={homeQ} onChange={e=>setHomeQ(e.target.value)} placeholder="Restoran yoki taom..." style={{border:"none",outline:"none",flex:1,fontSize:14,fontFamily:"inherit",background:"transparent",color:"#1a1a1a",padding:0}}/>
+                {homeQ&&<button onClick={()=>setHomeQ("")} style={{border:"none",background:"none",cursor:"pointer",color:"#aaa",fontSize:16,lineHeight:1}}>✕</button>}
+              </div>
+              <button style={{background:"white",border:"none",borderRadius:16,width:46,height:46,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 2px 12px rgba(0,0,0,.06)"}} onClick={()=>addToast("Filter tez orada!")}>
+                <Filter size={18} color={P}/>
+              </button>
+            </div>
+          </div>
+
+          {!homeQ&&(
+            <div style={{margin:"14px 16px 4px"}}>
+              <div style={{background:"linear-gradient(135deg,#c0370a,#F97316 50%,#fbbf24)",borderRadius:20,padding:"20px",position:"relative",overflow:"hidden",cursor:"pointer"}} onClick={()=>addToast("Aksiya: DASTURXON10 kod bilan bepul yetkazma!")}>
+                <div style={{position:"absolute",right:-20,top:-20,fontSize:90,opacity:.12}}>🎉</div>
+                <div style={{position:"absolute",right:20,top:"50%",transform:"translateY(-50%)",fontSize:48}}>🍽️</div>
+                <div style={{color:"rgba(255,255,255,.8)",fontSize:11,fontWeight:700,marginBottom:4,letterSpacing:1}}>MAXSUS TAKLIF</div>
+                <div style={{color:"white",fontSize:18,fontWeight:900,lineHeight:1.25,marginBottom:8}}>Birinchi buyurtmada<br/>yetkazma BEPUL!</div>
+                <div style={{background:"rgba(255,255,255,.22)",display:"inline-block",padding:"6px 14px",borderRadius:20,color:"white",fontSize:12,fontWeight:800}}>DASTURXON10 kod bilan →</div>
+              </div>
+            </div>
+          )}
+
+          <div style={{marginTop:14,marginBottom:4}}>
+            <div className="hs" style={{padding:"0 16px 4px"}}>
+              {CATS.map(c=>(
+                <button key={c.id} onClick={()=>setHomeCat(c.id)} style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 12px",borderRadius:16,border:homeCat===c.id?`2px solid ${P}`:"2px solid transparent",background:homeCat===c.id?"#FFF0E5":"white",cursor:"pointer",transition:"all .15s",boxShadow:homeCat===c.id?"none":"0 2px 8px rgba(0,0,0,.05)"}}>
+                  <span style={{fontSize:20}}>{c.e}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:homeCat===c.id?P:"#666",whiteSpace:"nowrap"}}>{c.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Items */}
-          <div style={{ padding: "14px 16px 20px", display: "grid", gap: 12 }}>
-            {filteredItems.map(item => {
-              const inCart = cart[`${restaurant.id}_${item.id}`];
-              return (
-                <div key={item.id} style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 16, padding: 14, display: "flex", gap: 12, alignItems: "center" }}>
-                  {item.image_url ? (
-                    <img src={item.image_url} alt="" style={{ width: 78, height: 78, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 78, height: 78, borderRadius: 12, background: "linear-gradient(135deg,#f6efe4,#ece2d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, flexShrink: 0 }}>🍽️</div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: 16, fontWeight: 600, marginBottom: 2 }}>{item.name}</div>
-                    {item.description && <div style={{ fontSize: 12, color: "#8a7a6b", marginBottom: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{item.description}</div>}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: BRAND }}>{fmt(item.price)}</span>
-                      {inCart ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, background: BRAND, borderRadius: 20, padding: "4px 6px" }}>
-                          <button onClick={() => removeFromCart(restaurant.id, item.id)} style={{ color: "#fff", padding: 4, display: "flex" }}><Minus size={16} /></button>
-                          <span style={{ color: "#fff", fontWeight: 700, minWidth: 16, textAlign: "center" }}>{inCart.qty}</span>
-                          <button onClick={() => addToCart(restaurant, item)} style={{ color: "#fff", padding: 4, display: "flex" }}><Plus size={16} /></button>
-                        </div>
-                      ) : (
-                        <button onClick={() => addToCart(restaurant, item)} style={{ background: BRAND, color: "#fff", padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
-                          <Plus size={14} /> Qo'shish
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{padding:"6px 16px 2px",display:"flex",gap:8}}>
+            {[["distance","📍 Yaqin"],["rating","⭐ Reyting"],["fee","💰 Arzon"]].map(([s,l])=>(
+              <button key={s} onClick={()=>setSortBy(s)} style={{padding:"6px 12px",borderRadius:20,border:"none",background:sortBy===s?"#1a1a2e":"white",color:sortBy===s?"white":"#888",fontFamily:"inherit",fontWeight:700,fontSize:11,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          <div style={{padding:"10px 16px 100px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <span style={{fontWeight:900,fontSize:17,color:"#1a1a1a"}}>{homeCat==="all"&&!homeQ?"Restoranlar":"Natijalar"}</span>
+              <span style={{background:"#FFF0E5",color:P,fontSize:12,fontWeight:800,padding:"2px 10px",borderRadius:20}}>{filteredHome.length} ta</span>
+            </div>
+            {filteredHome.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#bbb"}}><div style={{fontSize:48,marginBottom:12}}>😕</div><div style={{fontWeight:700,fontSize:16,color:"#777"}}>Topilmadi</div></div>}
+            {loading ? (
+              <div style={{gridColumn:"1/-1",textAlign:"center",padding:"40px 0"}}>
+                <div style={{fontSize:36,marginBottom:12}}>🍽️</div>
+                <div style={{fontWeight:700,color:"#aaa"}}>Yuklanmoqda...</div>
+              </div>
+            ) : null}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {filteredHome.map(r=><RestoCard key={r.id} r={r}/>)}
+            </div>
           </div>
         </>
       )}
 
-      {cartTotal > 0 && (
-        <div style={{ position: "fixed", bottom: 80, left: 0, right: 0, padding: "0 16px", zIndex: 60 }}>
-          <div style={{ maxWidth: 448, margin: "0 auto" }}>
-            <button onClick={onCheckout}
-              style={{ width: "100%", background: BRAND, color: "#fff", padding: "14px 18px", borderRadius: 16, fontWeight: 800, fontSize: 15, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 8px 20px rgba(194,98,47,.35)" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}><ShoppingBag size={18} /> Buyurtma berish</span>
-              <span>{fmt(cartTotal)}</span>
-            </button>
+      {tab==="search"&&(
+        <>
+          <div style={SH}>
+            <div style={{fontWeight:900,fontSize:18,color:"#1a1a1a",marginBottom:12}}>🔍 Qidiruv</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,background:"#f5f0eb",borderRadius:16,padding:"12px 16px"}}>
+              <Search size={18} color={P}/>
+              <input type="text" autoFocus value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Restoran, taom turi..." style={{border:"none",outline:"none",flex:1,fontSize:14,fontFamily:"inherit",background:"transparent",color:"#1a1a1a",padding:0}}/>
+              {searchQ&&<button onClick={()=>setSearchQ("")} style={{border:"none",background:"none",cursor:"pointer",color:"#aaa",fontSize:16,lineHeight:1}}>✕</button>}
+            </div>
           </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-/* ---------- Login modal ---------- */
-function LoginModal({ onClose, onSuccess }) {
-  const [step, setStep] = useState("phone");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
-
-  async function sendCode() {
-    setError(""); setInfo(""); setLoading(true);
-    try {
-      const r = await apiCall("/api/auth/send-code", { method: "POST", body: { phone } });
-      setInfo(r.channel === "telegram" ? "Kod Telegramga yuborildi ✓" : "Kod yuborildi ✓");
-      setStep("code");
-    } catch (e) {
-      if (e.need_telegram) setError("Avval botda raqamingizni ulashing: " + e.bot_url);
-      else setError(e.error || "Kod yuborilmadi");
-    } finally { setLoading(false); }
-  }
-
-  async function verifyCode() {
-    setError(""); setLoading(true);
-    try {
-      const r = await apiCall("/api/auth/verify-code", { method: "POST", body: { phone, code, name } });
-      localStorage.setItem("dx_token", r.token);
-      localStorage.setItem("dx_user", JSON.stringify(r.user));
-      onSuccess(r.user, r.token);
-    } catch (e) {
-      setError(e.error || "Kod noto'g'ri");
-    } finally { setLoading(false); }
-  }
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(20,12,6,.5)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fffdf9", width: "100%", maxWidth: 480, borderRadius: "24px 24px 0 0", padding: "8px 22px 30px", animation: "slideUp .25s" }}>
-        <div style={{ width: 40, height: 4, background: "#ece2d4", borderRadius: 2, margin: "8px auto 18px" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <h2 style={{ fontSize: 22 }}>{step === "phone" ? "Kirish" : "Tasdiqlash"}</h2>
-          <button onClick={onClose} style={{ padding: 6 }}><X size={22} /></button>
-        </div>
-
-        {step === "phone" && (
-          <>
-            <div style={{ color: "#8a7a6b", fontSize: 14, marginBottom: 16 }}>Telefon raqamingizni kiriting — Telegram orqali tasdiqlash kodi keladi.</div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 12, color: "#8a7a6b", fontWeight: 700, marginBottom: 6 }}>Telefon raqam</label>
-              <div style={{ display: "flex", alignItems: "center", border: "1px solid #ece2d4", borderRadius: 12, background: "#faf6ef", padding: "0 12px" }}>
-                <Phone size={18} color="#8a7a6b" />
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+998 90 123 45 67" autoFocus
-                  style={{ flex: 1, padding: "13px 12px", background: "transparent", border: "none", fontSize: 15 }} />
+          {!searchQ&&(
+            <div style={{padding:"16px 16px 4px"}}>
+              <div style={{fontWeight:900,fontSize:15,color:"#1a1a1a",marginBottom:12}}>Kategoriyalar</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+                {CATS.filter(c=>c.id!=="all").map(c=>(
+                  <button key={c.id} onClick={()=>{setHomeCat(c.id);setTab("home");}} style={{display:"flex",alignItems:"center",gap:12,background:"white",border:"none",borderRadius:16,padding:"14px 16px",cursor:"pointer",boxShadow:"0 2px 10px rgba(0,0,0,.06)",textAlign:"left"}}>
+                    <span style={{fontSize:24}}>{c.e}</span><span style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{c.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Ismingiz (ixtiyoriy)"
-              style={{ width: "100%", padding: "13px 14px", border: "1px solid #ece2d4", borderRadius: 12, background: "#faf6ef", fontSize: 15, marginBottom: 14 }} />
-            <button onClick={sendCode} disabled={loading || phone.length < 7}
-              style={{ width: "100%", background: BRAND, color: "#fff", padding: "14px", borderRadius: 14, fontWeight: 800, fontSize: 15, opacity: (loading || phone.length < 7) ? 0.5 : 1 }}>
-              {loading ? "Yuborilmoqda…" : "Kod yuborish"}
-            </button>
-            <div style={{ fontSize: 12, color: "#8a7a6b", marginTop: 12, textAlign: "center" }}>
-              Hali botda ro'yxatdan o'tmaganmisiz? <a href="https://t.me/dasturxon_app_bot" target="_blank" rel="noreferrer" style={{ color: BRAND, fontWeight: 700 }}>Botni oching</a>
-            </div>
-          </>
-        )}
-
-        {step === "code" && (
-          <>
-            <div style={{ color: "#8a7a6b", fontSize: 14, marginBottom: 16 }}>
-              <b>{phone}</b> raqamingizga Telegramda kelgan 6 xonali kodni kiriting.
-            </div>
-            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" autoFocus inputMode="numeric"
-              style={{ width: "100%", padding: "16px 14px", border: "1px solid #ece2d4", borderRadius: 12, background: "#faf6ef", fontSize: 22, textAlign: "center", letterSpacing: 6, fontWeight: 700, marginBottom: 14 }} />
-            <button onClick={verifyCode} disabled={loading || code.length !== 6}
-              style={{ width: "100%", background: BRAND, color: "#fff", padding: "14px", borderRadius: 14, fontWeight: 800, fontSize: 15, opacity: (loading || code.length !== 6) ? 0.5 : 1 }}>
-              {loading ? "Tekshirilmoqda…" : "Kirish"}
-            </button>
-            <button onClick={() => { setStep("phone"); setCode(""); setError(""); setInfo(""); }} style={{ width: "100%", color: "#8a7a6b", padding: 12, fontSize: 13, fontWeight: 600, marginTop: 8 }}>
-              ← Raqamni o'zgartirish
-            </button>
-          </>
-        )}
-
-        {info && <div style={{ marginTop: 12, fontSize: 13, color: "#3b7d4f", textAlign: "center", fontWeight: 600 }}>{info}</div>}
-        {error && <div style={{ marginTop: 12, fontSize: 13, color: "#c0392b", textAlign: "center", fontWeight: 600 }}>{error}</div>}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Checkout ---------- */
-function Checkout({ restaurant, cartItems, cartTotal, user, token, onBack, onSuccess, showToast }) {
-  const [addresses, setAddresses] = useState([]);
-  const [addrId, setAddrId] = useState(null);
-  const [payment, setPayment] = useState("cash");
-  const [note, setNote] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newAddr, setNewAddr] = useState("");
-
-  useEffect(() => {
-    apiCall("/api/auth/me", { token }).then(d => {
-      const list = d.addresses || [];
-      setAddresses(list);
-      const active = list.find(a => a.is_active) || list[0];
-      if (active) setAddrId(active.id);
-      if (!list.length) setShowAdd(true);
-    }).catch(() => {});
-  }, [token]);
-
-  const total = cartTotal + (restaurant.delivery_fee || 0);
-  const tooLow = cartTotal < (restaurant.min_order || 0);
-
-  async function addAddress() {
-    if (!newAddr.trim()) return;
-    try {
-      const a = await apiCall("/api/auth/addresses", { method: "POST", token, body: { label: "Yangi", address: newAddr, lat: SHAHRISABZ.lat, lon: SHAHRISABZ.lon } });
-      // refresh
-      const me = await apiCall("/api/auth/me", { token });
-      setAddresses(me.addresses || []);
-      setAddrId(a?.id || (me.addresses?.[0]?.id));
-      setShowAdd(false); setNewAddr("");
-    } catch (e) {
-      // Fallback: just keep it locally for the order
-      const tmp = { id: -1, address: newAddr, lat: SHAHRISABZ.lat, lon: SHAHRISABZ.lon };
-      setAddresses([tmp]); setAddrId(-1); setShowAdd(false);
-    }
-  }
-
-  async function placeOrder() {
-    if (tooLow) { showToast(`Minimal buyurtma: ${fmt(restaurant.min_order)}`); return; }
-    const addr = addresses.find(a => a.id === addrId);
-    if (!addr) { showToast("Manzilni tanlang"); return; }
-
-    setLoading(true);
-    try {
-      const order = await apiCall("/api/orders", {
-        method: "POST", token,
-        body: {
-          restaurant_id: restaurant.id,
-          items: cartItems.map(c => ({ id: c.itemId, name: c.name, price: c.price, qty: c.qty })),
-          subtotal: cartTotal,
-          delivery_fee: restaurant.delivery_fee || 0,
-          total,
-          address: addr.address,
-          lat: addr.lat,
-          lon: addr.lon,
-          payment_method: payment,
-          courier_note: note || null
-        }
-      });
-      onSuccess(order);
-    } catch (e) {
-      showToast(e.error || "Buyurtma yuborilmadi");
-    } finally { setLoading(false); }
-  }
-
-  return (
-    <>
-      <Header title="Buyurtmani rasmiylashtirish" onBack={onBack} />
-      <div style={{ padding: "16px 16px 200px" }}>
-        {/* Restaurant */}
-        <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 32 }}>{restaurant.emoji}</div>
-          <div>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, fontWeight: 600 }}>{restaurant.name}</div>
-            <div style={{ fontSize: 12, color: "#8a7a6b" }}>{cartItems.length} ta taom</div>
-          </div>
-        </div>
-
-        {/* Items */}
-        <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14, marginBottom: 14 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 10 }}>Buyurtma</h3>
-          {cartItems.map(c => (
-            <div key={c.itemId} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}>
-              <span>{c.qty}× {c.name}</span>
-              <span style={{ fontWeight: 600 }}>{fmt(c.price * c.qty)}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Address */}
-        <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14, marginBottom: 14 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 10 }}>Yetkazib berish manzili</h3>
-          {addresses.map(a => (
-            <button key={a.id} onClick={() => setAddrId(a.id)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, border: `2px solid ${addrId === a.id ? BRAND : "#ece2d4"}`, background: addrId === a.id ? "#fbf0e6" : "#faf6ef", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-              <MapPin size={18} color={addrId === a.id ? BRAND : "#8a7a6b"} />
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{a.address}</span>
-            </button>
-          ))}
-          {showAdd ? (
-            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-              <input value={newAddr} onChange={e => setNewAddr(e.target.value)} placeholder="Shahrisabz, ko'cha..."
-                style={{ flex: 1, padding: "11px 12px", border: "1px solid #ece2d4", borderRadius: 10, background: "#faf6ef" }} autoFocus />
-              <button onClick={addAddress} style={{ background: BRAND, color: "#fff", padding: "0 16px", borderRadius: 10, fontWeight: 700 }}>OK</button>
-            </div>
-          ) : (
-            <button onClick={() => setShowAdd(true)} style={{ width: "100%", padding: 10, borderRadius: 10, border: "1.5px dashed #c2622f", color: BRAND, fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <Plus size={16} /> Yangi manzil qo'shish
-            </button>
           )}
-        </div>
-
-        {/* Payment */}
-        <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14, marginBottom: 14 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 10 }}>To'lov turi</h3>
-          {[
-            { k: "cash", label: "Naqd (yetkazganda)", icon: Wallet },
-            { k: "payme", label: "Payme", icon: CreditCard },
-            { k: "click", label: "Click", icon: CreditCard }
-          ].map(p => (
-            <button key={p.k} onClick={() => setPayment(p.k)} style={{ width: "100%", textAlign: "left", padding: "12px 12px", borderRadius: 10, border: `2px solid ${payment === p.k ? BRAND : "#ece2d4"}`, background: payment === p.k ? "#fbf0e6" : "#faf6ef", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-              <p.icon size={18} color={payment === p.k ? BRAND : "#8a7a6b"} />
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{p.label}</span>
-              {p.k !== "cash" && <span style={{ marginLeft: "auto", fontSize: 11, color: "#8a7a6b", fontWeight: 600 }}>Tez orada</span>}
-            </button>
-          ))}
-        </div>
-
-        {/* Note */}
-        <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14, marginBottom: 14 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 10 }}>Kuryerga izoh (ixtiyoriy)</h3>
-          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Domofon kodi, qavat..."
-            style={{ width: "100%", padding: "10px 12px", border: "1px solid #ece2d4", borderRadius: 10, background: "#faf6ef", minHeight: 60, resize: "vertical", fontSize: 14 }} />
-        </div>
-
-        {/* Total */}
-        <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
-            <span style={{ color: "#8a7a6b" }}>Taomlar</span><span>{fmt(cartTotal)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 10 }}>
-            <span style={{ color: "#8a7a6b" }}>Yetkazib berish</span><span>{fmt(restaurant.delivery_fee || 0)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #ece2d4", paddingTop: 10, fontFamily: "'Fraunces',serif", fontSize: 19, fontWeight: 600 }}>
-            <span>Jami</span><span style={{ color: BRAND }}>{fmt(total)}</span>
-          </div>
-          {tooLow && <div style={{ marginTop: 10, fontSize: 12, color: "#c0392b", fontWeight: 600 }}>⚠️ Minimal buyurtma: {fmt(restaurant.min_order)}</div>}
-        </div>
-      </div>
-
-      <div style={{ position: "fixed", bottom: 80, left: 0, right: 0, padding: "0 16px", zIndex: 60 }}>
-        <div style={{ maxWidth: 448, margin: "0 auto" }}>
-          <button onClick={placeOrder} disabled={loading || tooLow}
-            style={{ width: "100%", background: BRAND, color: "#fff", padding: "15px", borderRadius: 16, fontWeight: 800, fontSize: 15, boxShadow: "0 8px 20px rgba(194,98,47,.35)", opacity: (loading || tooLow) ? 0.5 : 1 }}>
-            {loading ? "Yuborilmoqda…" : `Buyurtma berish — ${fmt(total)}`}
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* ---------- Orders ---------- */
-function OrdersTab({ user, token, onLogin, onOpenResto, restaurants }) {
-  const [orders, setOrders] = useState(null);
-
-  useEffect(() => {
-    if (!token) { setOrders([]); return; }
-    apiCall("/api/orders", { token }).then(setOrders).catch(() => setOrders([]));
-  }, [token]);
-
-  if (!token) {
-    return (
-      <>
-        <Header title="Buyurtmalar" />
-        <div style={{ padding: "60px 24px", textAlign: "center" }}>
-          <Package size={56} color="#c2622f" strokeWidth={1.4} style={{ margin: "0 auto 14px" }} />
-          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Buyurtmalaringizni ko'rish uchun kiring</h2>
-          <div style={{ color: "#8a7a6b", fontSize: 14, marginBottom: 20 }}>Tarix va holatlarni bu yerda kuzatib borasiz.</div>
-          <button onClick={onLogin} style={{ background: BRAND, color: "#fff", padding: "12px 28px", borderRadius: 12, fontWeight: 800 }}>Kirish</button>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Header title="Buyurtmalarim" />
-      <div style={{ padding: "16px" }}>
-        {orders === null ? <div style={{ textAlign: "center", padding: 40, color: "#8a7a6b" }}>Yuklanmoqda…</div>
-          : !orders.length ? (
-            <div style={{ textAlign: "center", padding: 40, color: "#8a7a6b" }}>Hozircha buyurtmalar yo'q</div>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {orders.map(o => {
-                const date = new Date(o.created_at).toLocaleString("uz-UZ", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-                const restName = o.restaurants?.name || restaurants.find(r => r.id === o.restaurant_id)?.name || "Restoran";
-                return (
-                  <div key={o.id} style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <div style={{ fontFamily: "'Fraunces',serif", fontSize: 16, fontWeight: 600 }}>{restName}</div>
-                      <div style={{ fontSize: 12, color: "#8a7a6b" }}>{date}</div>
-                    </div>
-                    <div style={{ fontSize: 13, color: "#8a7a6b", marginBottom: 8 }}>
-                      {(o.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ background: "#fbf0e6", color: BRAND, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{o.status}</span>
-                      <span style={{ fontWeight: 700, color: BRAND }}>{fmt(o.total)}</span>
+          <div style={{padding:"0 16px 100px"}}>
+            {searchQ&&<div style={{fontWeight:700,fontSize:13,color:"#888",marginBottom:12}}>{filteredSearch.length} natija</div>}
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {(searchQ?filteredSearch:sorted).map(r=>(
+                <div key={r.id} className="cd" onClick={()=>openResto(r)} style={{background:"white",borderRadius:16,display:"flex",alignItems:"center",gap:12,padding:"12px 14px",boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                  <div style={{background:r.bg,width:54,height:54,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:24}}>{r.e}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{r.name}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}>
+                      <Star size={11} fill="#fbbf24" color="#fbbf24"/>
+                      <span style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>{r.rating}</span>
+                      <span style={{fontSize:11,color:"#bbb"}}>·</span>
+                      <span style={{fontSize:11,color:"#888"}}>{estDelivery(r)} min</span>
+                      <span style={{fontSize:11,color:"#bbb"}}>·</span>
+                      <span style={{fontSize:11,color:"#888"}}>{r.dist} km</span>
                     </div>
                   </div>
-                );
-              })}
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                    <span style={{background:r.open?"#dcfce7":"#fee2e2",color:r.open?"#16a34a":"#dc2626",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{r.open?"Ochiq":"Yopiq"}</span>
+                    <span style={{fontSize:11,color:"#aaa"}}>{fmt(r.fee)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-      </div>
-    </>
-  );
-}
-
-/* ---------- Profile ---------- */
-function ProfileTab({ user, token, onLogin, onLogout }) {
-  const [me, setMe] = useState(user);
-  useEffect(() => {
-    if (token) apiCall("/api/auth/me", { token }).then(setMe).catch(() => {});
-  }, [token]);
-
-  if (!token) {
-    return (
-      <>
-        <Header title="Profil" />
-        <div style={{ padding: "60px 24px", textAlign: "center" }}>
-          <User size={56} color="#c2622f" strokeWidth={1.4} style={{ margin: "0 auto 14px" }} />
-          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Profilga kirish</h2>
-          <div style={{ color: "#8a7a6b", fontSize: 14, marginBottom: 20 }}>Buyurtmalar, manzillar va bonuslarni boshqarish uchun kiring.</div>
-          <button onClick={onLogin} style={{ background: BRAND, color: "#fff", padding: "12px 28px", borderRadius: 12, fontWeight: 800 }}>Kirish</button>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Header title="Profil" />
-      <div style={{ padding: "16px" }}>
-        <div style={{ background: `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`, color: "#fff", padding: 20, borderRadius: 18, marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces',serif", fontSize: 26, fontWeight: 600 }}>
-            {(me?.name || "?")[0].toUpperCase()}
           </div>
-          <div>
-            <div style={{ fontFamily: "'Fraunces',serif", fontSize: 22, fontWeight: 600 }}>{me?.name}</div>
-            <div style={{ fontSize: 13, opacity: 0.9 }}>+{me?.phone}</div>
-            {me?.bonus_points > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>⭐ {me.bonus_points} bonus</div>}
-          </div>
-        </div>
+        </>
+      )}
 
-        {me?.addresses?.length > 0 && (
-          <div style={{ background: "#fffdf9", border: "1px solid #ece2d4", borderRadius: 14, padding: 14, marginBottom: 14 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 10 }}>Manzillarim</h3>
-            {me.addresses.map(a => (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
-                <MapPin size={16} color={BRAND} />
-                <span>{a.address}</span>
+      {tab==="orders"&&(
+        <>
+          <div style={SH}><div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>📦 Buyurtmalarim</div></div>
+          <div style={{padding:"16px 16px 100px"}}>
+            {orders.filter(o=>o.stage<3).length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:10}}>🔄 Faol buyurtmalar</div>
+                {orders.filter(o=>o.stage<3).map(o=>(
+                  <div key={o.id} className="cd" onClick={()=>{setTrackingOrder(o.id);setView("tracking");}} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 4px 16px rgba(0,0,0,.07)",border:`1.5px solid ${P}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{o.resto}</div>
+                      <span style={{background:"#FFF0E5",color:P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{ORDER_STAGES[o.stage]}</span>
+                    </div>
+                    <div style={{background:"#f5e6d8",borderRadius:20,height:6,overflow:"hidden",marginBottom:6}}>
+                      <div style={{background:P,width:Math.round((o.stage/(ORDER_STAGES.length-1))*100)+"%",height:"100%",borderRadius:20,transition:"width 1s"}}/>
+                    </div>
+                    <div style={{fontSize:12,color:"#888"}}>~{o.eta - o.stage*8} daqiqa qoldi · Kuzatish →</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            {orders.filter(o=>o.stage===3).length>0&&(
+              <div>
+                <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:10}}>✅ Yetkazilgan</div>
+                {orders.filter(o=>o.stage===3).map(o=>(
+                  <div key={o.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                      <div style={{background:o.restoBg,width:44,height:44,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{o.restoE}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{o.resto}</div>
+                        <div style={{fontSize:11,color:"#aaa"}}>{o.date.toLocaleDateString("uz-UZ")}</div>
+                      </div>
+                      <div style={{fontWeight:900,fontSize:15,color:P}}>{fmt(o.total)}</div>
+                    </div>
+                    <div style={{fontSize:12,color:"#888",marginBottom:10}}>{o.items.map(i=>i.name+"×"+i.qty).join(" · ")}</div>
+                    {o.reviewed?(
+                      <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                        {Array(o.rating).fill(0).map((_,i)=><span key={i} style={{fontSize:14}}>⭐</span>)}
+                        <span style={{fontSize:12,color:"#aaa",marginLeft:4}}>Baholagan</span>
+                      </div>
+                    ):(
+                      <div style={{display:"flex",gap:8}}>
+                        <button className="ob" onClick={()=>{setReviewOpen(o);setStarRest(0);setStarCourier(0);setReviewTags([]);setReviewText("");}} style={{flex:1,padding:"10px",fontSize:12,borderRadius:12}}>⭐ Baholash</button>
+                        <button onClick={()=>{const r=restaurants.find(x=>x.name===o.resto);if(r)openResto(r);}} style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px solid ${P}`,background:"white",color:P,fontFamily:"inherit",fontWeight:800,fontSize:12,cursor:"pointer"}}>Qayta buyurtma</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {orders.length===0&&(
+              <div style={{textAlign:"center",padding:"60px 20px"}}>
+                <div style={{fontSize:72,marginBottom:16}}>🛍️</div>
+                <div style={{fontWeight:900,fontSize:20,color:"#1a1a1a",marginBottom:8}}>Buyurtmalar yo'q</div>
+                <div style={{fontSize:14,color:"#aaa",marginBottom:28}}>Sevimli restoranlardan buyurtma qiling</div>
+                <button className="ob" onClick={()=>setTab("home")} style={{padding:"14px 32px",fontSize:15}}>Restoranlarni ko'rish</button>
+              </div>
+            )}
           </div>
-        )}
+        </>
+      )}
 
-        <button onClick={onLogout} style={{ width: "100%", padding: 14, borderRadius: 14, border: "1px solid #ece2d4", background: "#fffdf9", color: "#c0392b", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <LogOut size={18} /> Chiqish
-        </button>
-      </div>
-    </>
-  );
-}
+      {tab==="profile"&&(
+        <>
+          <div style={SH}><div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>👤 Profil</div></div>
+          <div style={{padding:"16px 16px 100px"}}>
+            <div style={{background:"white",borderRadius:20,padding:"20px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
+                <div style={{width:66,height:66,borderRadius:22,background:`linear-gradient(145deg,${P},#fbbf24)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:26,fontWeight:900,color:"white"}}>{(userName||"?").substring(0,2).toUpperCase()}</span>
+                </div>
+                <div style={{flex:1}}>
+                  {editProfile?(
+                    <div>
+                      <input type="text" defaultValue={userName} onBlur={e=>{
+                        const newName = e.target.value.trim();
+                        if(newName && newName !== userName){
+                          api.patch ? null : null; // placeholder
+                          fetch(API+"/api/auth/profile",{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({name:newName})}).then(r=>r.json()).then(u=>{setUser(prev=>({...prev,name:u.name||newName}));localStorage.setItem("dx_user",JSON.stringify({...user,name:u.name||newName}));addToast("Saqlandi ✓");}).catch(()=>{});
+                        }
+                      }} style={{marginBottom:6,fontSize:15,fontWeight:800}} placeholder="Ismingiz"/>
+                      <input type="tel" value={userPhone} readOnly style={{fontSize:13,opacity:0.6}} placeholder="Telefon"/>
+                    </div>
+                  ):(
+                    <div>
+                      <div style={{fontWeight:900,fontSize:19,color:"#1a1a1a"}}>{userName}</div>
+                      <div style={{fontSize:13,color:"#aaa",marginTop:2}}>{userPhone}</div>
+                    </div>
+                  )}
+                </div>
+                <button onClick={()=>setEditProfile(!editProfile)} style={{background:"#f5f5f5",border:"none",borderRadius:10,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                  {editProfile?<CheckCircle size={16} color="#22c55e"/>:<Edit3 size={15} color="#888"/>}
+                </button>
+              </div>
+              <div style={{background:"#FFF0E5",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:20}}>🎁</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{userBonus} bonus ball</div>
+                  <div style={{fontSize:11,color:"#aaa"}}>Har 100 so'mda 1 ball yig'iladi</div>
+                </div>
+                <button onClick={()=>addToast("Bonus tizimi tez orada!")} style={{background:P,border:"none",borderRadius:10,padding:"6px 12px",color:"white",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Ishlatish</button>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+              {[[orders.length,"Buyurtma","📦"],[favs.size,"Sevimli","❤️"],[orders.filter(o=>o.reviewed).length,"Sharh","⭐"]].map(([v,l,e])=>(
+                <div key={l} style={{background:"white",borderRadius:16,padding:"14px 8px",textAlign:"center",boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                  <div style={{fontSize:22,marginBottom:4}}>{e}</div>
+                  <div style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>{v}</div>
+                  <div style={{fontSize:11,color:"#bbb",fontWeight:600}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"white",borderRadius:20,padding:"4px 16px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+              <div className="pr"><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:36,height:36,borderRadius:10,background:"#FFF0E5",display:"flex",alignItems:"center",justifyContent:"center"}}><MapPin size={17} color={P}/></div><span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>Manzillarim</span></div><ChevronRight size={18} color="#ddd"/></div>
+              <div className="pr"><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:36,height:36,borderRadius:10,background:"#FFF0E5",display:"flex",alignItems:"center",justifyContent:"center"}}><CreditCard size={17} color={P}/></div><span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>To'lov usullari</span></div><ChevronRight size={18} color="#ddd"/></div>
+              <div className="pr" style={{borderBottom:"none"}} onClick={()=>{localStorage.removeItem("dx_token");localStorage.removeItem("dx_user");setToken(null);setUser(null);setView("main");addToast("Chiqdingiz");}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:36,height:36,borderRadius:10,background:"#FEE2E2",display:"flex",alignItems:"center",justifyContent:"center"}}><LogOut size={17} color="#ef4444"/></div><span style={{fontWeight:700,fontSize:14,color:"#ef4444"}}>Chiqish</span></div>
+                <ChevronRight size={18} color="#fca5a5"/>
+              </div>
+            </div>
+            <div style={{textAlign:"center",fontSize:12,color:"#ccc"}}>Dasturxon v2.0 · Shahrisabz © 2026</div>
+          </div>
+        </>
+      )}
 
-/* ---------- Order success ---------- */
-function OrderSuccess({ order, onHome }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
-      <div>
-        <div style={{ width: 90, height: 90, borderRadius: "50%", background: "#e4f3e8", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
-          <Check size={50} color="#3b7d4f" strokeWidth={3} />
-        </div>
-        <h1 style={{ fontSize: 26, marginBottom: 8 }}>Buyurtma qabul qilindi!</h1>
-        <div style={{ color: "#8a7a6b", marginBottom: 6 }}>Buyurtma № <b>#{order?.id || "—"}</b></div>
-        <div style={{ color: "#8a7a6b", marginBottom: 24, fontSize: 14 }}>Restoran tez orada bog'lanadi.</div>
-        <button onClick={onHome} style={{ background: BRAND, color: "#fff", padding: "13px 36px", borderRadius: 14, fontWeight: 800 }}>Bosh sahifaga</button>
-      </div>
+      <BottomNav/>
     </div>
-  );
-}
-
-/* =========================================== */
-/*                  ROOT APP                   */
-/* =========================================== */
-export default function App() {
-  const [tab, setTab] = useState("home");
-  const [restaurants, setRestaurants] = useState([]);
-  const [search, setSearch] = useState("");
-  const [activeResto, setActiveResto] = useState(null);
-  const [cart, setCart] = useState({}); // { "restoId_itemId": {restaurantId, itemId, name, price, qty} }
-  const [view, setView] = useState("list"); // list | resto | checkout | success
-  const [lastOrder, setLastOrder] = useState(null);
-  const [userLoc, setUserLoc] = useState(null);
-  const [toast, setToast] = useState("");
-
-  const [token, setToken] = useState(() => localStorage.getItem("dx_token"));
-  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("dx_user")); } catch { return null; } });
-  const [showLogin, setShowLogin] = useState(false);
-  const [pendingCheckout, setPendingCheckout] = useState(false);
-
-  // Load restaurants
-  useEffect(() => {
-    apiCall("/api/restaurants").then(setRestaurants).catch(() => setRestaurants([]));
-  }, []);
-
-  // Get user location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        p => setUserLoc({ lat: p.coords.latitude, lon: p.coords.longitude }),
-        () => setUserLoc(SHAHRISABZ),
-        { timeout: 4000 }
-      );
-    } else { setUserLoc(SHAHRISABZ); }
-  }, []);
-
-  function showToast(msg) { setToast(msg); setTimeout(() => setToast(""), 2500); }
-
-  function addToCart(restaurant, item) {
-    const key = `${restaurant.id}_${item.id}`;
-    setCart(c => ({ ...c, [key]: { restaurantId: restaurant.id, itemId: item.id, name: item.name, price: item.price, qty: (c[key]?.qty || 0) + 1 } }));
-  }
-  function removeFromCart(restoId, itemId) {
-    const key = `${restoId}_${itemId}`;
-    setCart(c => {
-      const cur = c[key]; if (!cur) return c;
-      if (cur.qty <= 1) { const { [key]: _, ...rest } = c; return rest; }
-      return { ...c, [key]: { ...cur, qty: cur.qty - 1 } };
-    });
-  }
-
-  function openResto(r) { setActiveResto(r); setView("resto"); }
-  function backHome() { setView("list"); setActiveResto(null); }
-
-  function tryCheckout() {
-    if (!token) { setPendingCheckout(true); setShowLogin(true); return; }
-    setView("checkout");
-  }
-
-  function onLoginSuccess(u, t) {
-    setUser(u); setToken(t); setShowLogin(false);
-    if (pendingCheckout) { setPendingCheckout(false); setView("checkout"); }
-  }
-
-  function logout() {
-    localStorage.removeItem("dx_token"); localStorage.removeItem("dx_user");
-    setToken(null); setUser(null);
-  }
-
-  function onOrderSuccess(o) {
-    setLastOrder(o); setView("success"); setCart({});
-  }
-
-  const cartItemsForActive = activeResto ? Object.values(cart).filter(c => c.restaurantId === activeResto.id) : [];
-  const cartTotalForActive = cartItemsForActive.reduce((s, c) => s + c.price * c.qty, 0);
-
-  return (
-    <>
-      <style>{styles}</style>
-      <div className="app">
-        {view === "list" && tab === "home" && (
-          <RestaurantsList restaurants={restaurants} userLoc={userLoc} onOpen={openResto} search={search} setSearch={setSearch} />
-        )}
-        {view === "list" && tab === "search" && (
-          <RestaurantsList restaurants={restaurants} userLoc={userLoc} onOpen={openResto} search={search} setSearch={setSearch} />
-        )}
-        {view === "list" && tab === "orders" && (
-          <OrdersTab user={user} token={token} onLogin={() => setShowLogin(true)} restaurants={restaurants} />
-        )}
-        {view === "list" && tab === "profile" && (
-          <ProfileTab user={user} token={token} onLogin={() => setShowLogin(true)} onLogout={logout} />
-        )}
-
-        {view === "resto" && activeResto && (
-          <RestaurantDetail
-            restaurant={activeResto}
-            onBack={backHome}
-            cart={cart}
-            addToCart={addToCart}
-            removeFromCart={removeFromCart}
-            onCheckout={tryCheckout}
-          />
-        )}
-
-        {view === "checkout" && activeResto && (
-          <Checkout
-            restaurant={activeResto}
-            cartItems={cartItemsForActive}
-            cartTotal={cartTotalForActive}
-            user={user}
-            token={token}
-            onBack={() => setView("resto")}
-            onSuccess={onOrderSuccess}
-            showToast={showToast}
-          />
-        )}
-
-        {view === "success" && (
-          <OrderSuccess order={lastOrder} onHome={() => { setView("list"); setTab("orders"); }} />
-        )}
-
-        {view === "list" && <BottomNav tab={tab} setTab={setTab} />}
-      </div>
-
-      {showLogin && <LoginModal onClose={() => { setShowLogin(false); setPendingCheckout(false); }} onSuccess={onLoginSuccess} />}
-      <Toast msg={toast} />
-    </>
   );
 }
