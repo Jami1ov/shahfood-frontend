@@ -74,7 +74,7 @@ const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","
 const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"O'zbek taomi",e:"🍲"},{id:"fastfood",label:"Tezfud",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Sho'rva",e:"🥣"},{id:"bbq",label:"Barbekyu",e:"🔥"},{id:"icecream",label:"Muzqaymoq",e:"🍦"},{id:"wedding",label:"To'y",e:"🎊"}];
 
 export default function App() {
-  const [view, setView] = useState("splash");
+  const [view, setView] = useState("main");
   const [tab, setTab] = useState("home");
   const [resto, setResto] = useState(null);
   const [homeCat, setHomeCat] = useState("all");
@@ -366,16 +366,6 @@ export default function App() {
           {tab===id&&<span style={{width:4,height:4,background:P,borderRadius:"50%"}}/>}
         </button>
       ))}
-    </div>
-  );
-
-  if(view==="splash") return (
-    <div style={{...W,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
-      <style>{CSS}</style>
-      <div style={{fontSize:72,marginBottom:20}}>🍽️</div>
-      <div style={{fontWeight:900,fontSize:28,color:"#1a1a1a",marginBottom:4}}>Dasturxon</div>
-      <div style={{fontSize:14,color:"#aaa",marginBottom:48}}>Shahrisabz yetkazib berish xizmati</div>
-      <button className="ob" onClick={()=>setView("main")} style={{padding:"16px 48px",fontSize:16,borderRadius:20}}>Boshlash</button>
     </div>
   );
 
