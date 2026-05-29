@@ -1,4 +1,4 @@
-/* Dasturxon — toza responsive reset */
+/* Dasturxon — responsive reset (mobil + desktop) */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -16,33 +16,35 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  background: #f0e6d8;
+  background: #FFF7ED;
   font-family: 'Nunito', 'Segoe UI', Roboto, sans-serif;
   color: #1a1a1a;
-  /* Ilovani markazga joylaymiz (laptopda) */
-  display: flex;
-  justify-content: center;
   overflow-x: hidden;
 }
 
+/* MOBIL (default): telefon kengligida, markazda */
 #root {
   width: 100%;
   max-width: 480px;
+  margin: 0 auto;
   min-height: 100vh;
   background: #FFF7ED;
   position: relative;
 }
 
-img, svg, video {
-  max-width: 100%;
-  height: auto;
+/* DESKTOP / LAPTOP (>= 900px): butun ekran kengligi */
+@media (min-width: 900px) {
+  #root {
+    max-width: 100%;
+    width: 100%;
+  }
 }
 
-/* Scrollbarni yashirish */
+img, svg, video { max-width: 100%; height: auto; }
+
 ::-webkit-scrollbar { display: none; }
 * { scrollbar-width: none; }
 
 @media (prefers-color-scheme: dark) {
-  /* Majburiy yorug' rejim — ilova oq fonli dizaynda */
   body, #root { background: #FFF7ED; color: #1a1a1a; }
 }

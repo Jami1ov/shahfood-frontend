@@ -75,6 +75,12 @@ const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"O'zbek 
 
 export default function App() {
   const [view, setView] = useState("main");
+  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= 900);
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 900);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const [tab, setTab] = useState("home");
   const [resto, setResto] = useState(null);
   const [homeCat, setHomeCat] = useState("all");
@@ -202,6 +208,28 @@ export default function App() {
   }, [view, trackingOrder, token]);
 
   const activeAddr = addresses.find(a=>a.active) || addresses[0];
+
+  // ── Brauzer "orqaga" tugmasi ilova ichida ishlashi uchun ──
+  // Har bir ichki ekran (rest, checkout, tracking, auth) tarixga yoziladi.
+  // Orqaga bosilganda saytdan chiqmasdan, oldingi ekranga qaytadi.
+  const isInnerView = view !== "main" || checkoutOpen;
+  useEffect(() => {
+    if (isInnerView) {
+      // Ichki ekranga kirdik — tarixga bitta yozuv qo'shamiz
+      window.history.pushState({ dxInner: true }, "");
+    }
+  }, [view, checkoutOpen]);
+
+  useEffect(() => {
+    const onPop = () => {
+      // Orqaga bosildi — agar ichki ekranda bo'lsak, bosh sahifaga qaytamiz
+      if (checkoutOpen) { setCheckoutOpen(false); }
+      else if (view !== "main") { setView("main"); }
+      // Aks holda (bosh sahifada) — brauzer normal ishlaydi (saytdan chiqadi)
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [view, checkoutOpen]);
 
   const restWithDist = restaurants.map(r=>({...r, dist:haversine(userLoc.lat,userLoc.lon,r.lat,r.lon)}));
   const sorted = [...restWithDist].sort((a,b)=> sortBy==="distance" ? a.dist-b.dist : sortBy==="rating" ? b.rating-a.rating : a.fee-b.fee);
@@ -349,9 +377,11 @@ export default function App() {
     .fixed-bar{position:fixed;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:480px;z-index:100;}
   `;
 
-  const W = {background:"#FFF7ED",minHeight:"100vh",width:"100%",maxWidth:480,margin:"0 auto",position:"relative",overflowX:"hidden"};
+  const W = {background:"#FFF7ED",minHeight:"100vh",width:"100%",maxWidth:isDesktop?"100%":480,margin:"0 auto",position:"relative",overflowX:"hidden"};
+  // Ichki sahifalar (resto, checkout, tracking, auth) desktopda markazda 600px
+  const WP = {background:"#FFF7ED",minHeight:"100vh",width:"100%",maxWidth:isDesktop?600:480,margin:"0 auto",position:"relative",overflowX:"hidden"};
   const SH = {background:"white",padding:"14px 16px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 12px rgba(0,0,0,.06)"};
-  const BN = {position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f0f0f0",padding:"10px 0 16px",display:"flex",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,.08)"};
+  const BN = {position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:isDesktop?760:480,background:"white",borderTop:"1px solid #f0f0f0",padding:"10px 0 16px",display:"flex",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,.08)",borderRadius:isDesktop?"20px 20px 0 0":0};
 
   const RestoCard = ({r}) => (
     <div className="cd" onClick={()=>openResto(r)} style={{background:"white",borderRadius:20,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.08)"}}>
@@ -423,7 +453,7 @@ export default function App() {
   };
 
   if(view==="auth") return (
-    <div style={{...W,padding:"40px 24px"}}>
+    <div style={{...WP,padding:"40px 24px"}}>
       <style>{CSS}</style>
       <div style={{textAlign:"center",marginBottom:32}}>
         <div style={{fontSize:48,marginBottom:12}}>🍽️</div>
@@ -474,7 +504,7 @@ export default function App() {
     if(!ord) return null;
     const pct = Math.round(((ord.stage+1)/ORDER_STAGES.length)*100);
     return (
-      <div style={W}>
+      <div style={WP}>
         <style>{CSS}</style>
         <div style={SH}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -543,7 +573,7 @@ export default function App() {
   if(view==="rest" && resto) {
     const r = restWithDist.find(x=>x.id===resto.id)||resto;
     return (
-      <div style={W}>
+      <div style={WP}>
         <style>{CSS}</style>
         {checkoutOpen ? (
           <div style={{padding:"0 0 100px"}}>
@@ -613,7 +643,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
+            <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:isDesktop?600:480,padding:"12px 16px 24px",zIndex:100}}>
               <button className="ob" onClick={placeOrder} style={{width:"100%",padding:"15px 20px",fontSize:15,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
                 Buyurtma berish — {fmt(cartTotal)}
               </button>
@@ -708,7 +738,7 @@ export default function App() {
               </>)}
             </div>
             {cartCount>0&&(
-              <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
+              <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:isDesktop?600:480,padding:"12px 16px 24px",zIndex:100}}>
                 <button className="ob" onClick={()=>setCheckoutOpen(true)} style={{width:"100%",padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:14,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
                   <div style={{background:"rgba(255,255,255,.25)",borderRadius:10,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:13}}>{cartCount}</div>
                   <span>Savatga o'tish</span>
@@ -885,7 +915,7 @@ export default function App() {
       {tab==="home"&&(
         <>
           <div style={SH}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:4,color:"#888",fontSize:12,marginBottom:2}}>
                   <MapPin size={12} color={P} strokeWidth={2.5}/>
@@ -904,7 +934,7 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{padding:"14px 16px 4px"}}>
+          <div style={{padding:"14px 16px 4px",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
             <div style={{display:"flex",gap:10}}>
               <div style={{flex:1,display:"flex",alignItems:"center",gap:10,background:"white",borderRadius:16,padding:"12px 16px",boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
                 <Search size={18} color="#ccc"/>
@@ -918,7 +948,7 @@ export default function App() {
           </div>
 
           {!homeQ&&(
-            <div style={{margin:"14px 16px 4px"}}>
+            <div style={{margin:"14px auto 4px",padding:"0 16px",maxWidth:isDesktop?1100:"100%",width:"100%"}}>
               <div style={{background:"linear-gradient(135deg,#c0370a,#F97316 50%,#fbbf24)",borderRadius:20,padding:"20px",position:"relative",overflow:"hidden",cursor:"pointer"}} onClick={()=>addToast("Aksiya: DASTURXON10 kod bilan bepul yetkazma!")}>
                 <div style={{position:"absolute",right:-20,top:-20,fontSize:90,opacity:.12}}>🎉</div>
                 <div style={{position:"absolute",right:20,top:"50%",transform:"translateY(-50%)",fontSize:48}}>🍽️</div>
@@ -929,7 +959,7 @@ export default function App() {
             </div>
           )}
 
-          <div style={{marginTop:14,marginBottom:4}}>
+          <div style={{marginTop:14,marginBottom:4,maxWidth:isDesktop?1100:"100%",marginLeft:"auto",marginRight:"auto",width:"100%"}}>
             <div className="hs" style={{padding:"0 16px 4px"}}>
               {CATS.map(c=>(
                 <button key={c.id} onClick={()=>setHomeCat(c.id)} style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 12px",borderRadius:16,border:homeCat===c.id?`2px solid ${P}`:"2px solid transparent",background:homeCat===c.id?"#FFF0E5":"white",cursor:"pointer",transition:"all .15s",boxShadow:homeCat===c.id?"none":"0 2px 8px rgba(0,0,0,.05)"}}>
@@ -940,7 +970,7 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{padding:"6px 16px 2px",display:"flex",gap:8}}>
+          <div style={{padding:"6px 16px 2px",display:"flex",gap:8,maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
             {[["distance","📍 Yaqin"],["rating","⭐ Reyting"],["fee","💰 Arzon"]].map(([s,l])=>(
               <button key={s} onClick={()=>setSortBy(s)} style={{padding:"6px 12px",borderRadius:20,border:"none",background:sortBy===s?"#1a1a2e":"white",color:sortBy===s?"white":"#888",fontFamily:"inherit",fontWeight:700,fontSize:11,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
                 {l}
@@ -948,7 +978,7 @@ export default function App() {
             ))}
           </div>
 
-          <div style={{padding:"10px 16px 100px"}}>
+          <div style={{padding:"10px 16px 100px",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <span style={{fontWeight:900,fontSize:17,color:"#1a1a1a"}}>{homeCat==="all"&&!homeQ?"Restoranlar":"Natijalar"}</span>
               <span style={{background:"#FFF0E5",color:P,fontSize:12,fontWeight:800,padding:"2px 10px",borderRadius:20}}>{filteredHome.length} ta</span>
@@ -960,7 +990,7 @@ export default function App() {
                 <div style={{fontWeight:700,color:"#aaa"}}>Yuklanmoqda...</div>
               </div>
             ) : null}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(auto-fill,minmax(260px,1fr))":"1fr 1fr",gap:isDesktop?16:12}}>
               {filteredHome.map(r=><RestoCard key={r.id} r={r}/>)}
             </div>
           </div>
