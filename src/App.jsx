@@ -326,10 +326,14 @@ export default function App() {
 
   const CSS = `
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-    body,#root{font-family:'Nunito','Segoe UI',sans-serif;background:#FFF7ED;margin:0;padding:0;}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+    html,body,#root{font-family:'Nunito','Segoe UI',sans-serif;background:#f0e6d8;margin:0;padding:0;width:100%;overflow-x:hidden;}
+    body{display:flex;justify-content:center;}
+    #root{width:100%;max-width:480px;}
     ::-webkit-scrollbar{display:none;}
-    .hs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+    img,svg{max-width:100%;}
+    .hs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+    .hs::-webkit-scrollbar{display:none;}
     .cd{transition:transform .15s;cursor:pointer;}
     .cd:active{transform:scale(.97);}
     .ob{background:${P};color:white;border:none;border-radius:14px;cursor:pointer;font-family:inherit;font-weight:800;transition:opacity .15s;}
@@ -339,14 +343,15 @@ export default function App() {
     .row{display:flex;align-items:center;}
     .pr{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #f5e6d8;cursor:pointer;}
     .pr:active{opacity:.7;}
-    input[type=text],input[type=tel],textarea{border:1.5px solid #e5d5c5;border-radius:12px;padding:10px 14px;font-family:inherit;font-size:14px;outline:none;width:100%;background:white;}
+    input[type=text],input[type=tel],input[type=number],textarea{border:1.5px solid #e5d5c5;border-radius:12px;padding:10px 14px;font-family:inherit;font-size:16px;outline:none;width:100%;background:white;}
     input:focus,textarea:focus{border-color:${P};}
     textarea{resize:none;}
+    .fixed-bar{position:fixed;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:480px;z-index:100;}
   `;
 
-  const W = {background:"#FFF7ED",minHeight:"100vh",maxWidth:480,margin:"0 auto",position:"relative",overflowX:"hidden"};
+  const W = {background:"#FFF7ED",minHeight:"100vh",width:"100%",maxWidth:480,margin:"0 auto",position:"relative",overflowX:"hidden"};
   const SH = {background:"white",padding:"14px 16px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 12px rgba(0,0,0,.06)"};
-  const BN = {position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f0f0f0",padding:"10px 0 16px",display:"flex",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,.08)"};
+  const BN = {position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f0f0f0",padding:"10px 0 16px",display:"flex",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,.08)"};
 
   const RestoCard = ({r}) => (
     <div className="cd" onClick={()=>openResto(r)} style={{background:"white",borderRadius:20,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.08)"}}>
@@ -608,7 +613,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
+            <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
               <button className="ob" onClick={placeOrder} style={{width:"100%",padding:"15px 20px",fontSize:15,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
                 Buyurtma berish — {fmt(cartTotal)}
               </button>
@@ -703,7 +708,7 @@ export default function App() {
               </>)}
             </div>
             {cartCount>0&&(
-              <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
+              <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:480,padding:"12px 16px 24px",zIndex:100}}>
                 <button className="ob" onClick={()=>setCheckoutOpen(true)} style={{width:"100%",padding:"15px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:14,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
                   <div style={{background:"rgba(255,255,255,.25)",borderRadius:10,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:13}}>{cartCount}</div>
                   <span>Savatga o'tish</span>
@@ -832,7 +837,7 @@ export default function App() {
       <style>{CSS}</style>
 
       {toasts.map(t=>(
-        <div key={t.id} style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",background:t.type==="err"?"#dc2626":"#1a1a2e",color:"white",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:700,zIndex:9999,maxWidth:"88%",textAlign:"center",boxShadow:"0 4px 20px rgba(0,0,0,.3)",transition:"all .3s"}}>
+        <div key={t.id} style={{position:"fixed",top:80,left:0,right:0,margin:"0 auto",width:"fit-content",maxWidth:"88%",background:t.type==="err"?"#dc2626":"#1a1a2e",color:"white",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:700,zIndex:9999,textAlign:"center",boxShadow:"0 4px 20px rgba(0,0,0,.3)",transition:"all .3s"}}>
           {t.msg}
         </div>
       ))}
@@ -886,15 +891,12 @@ export default function App() {
                   <MapPin size={12} color={P} strokeWidth={2.5}/>
                   <span>{activeAddr.label}</span>
                 </div>
-                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
-                  <span style={{fontWeight:900,fontSize:16,color:"#1a1a1a"}}>{activeAddr.addr.substring(0,20)}...</span>
+                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit",maxWidth:"100%",overflow:"hidden"}}>
+                  <span style={{fontWeight:900,fontSize:16,color:"#1a1a1a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{activeAddr.addr.includes("(")?activeAddr.addr.split("(")[0].trim():activeAddr.addr}</span>
                   {locLoading?<RefreshCw size={14} color={P}/>:<ChevronRight size={15} color="#aaa"/>}
                 </button>
               </div>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setAdminOpen(true)} style={{background:"#f5f0eb",border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-                  <Settings size={17} color="#888"/>
-                </button>
                 <button onClick={()=>changeTab("profile")} style={{background:P,border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                   <User size={18} color="white"/>
                 </button>
