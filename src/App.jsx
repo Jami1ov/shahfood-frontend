@@ -80,7 +80,9 @@ export default function App() {
   const [homeCat, setHomeCat] = useState("all");
   const [homeQ, setHomeQ] = useState("");
   const [searchQ, setSearchQ] = useState("");
-  const [favs, setFavs] = useState(new Set([1,5,8]));
+  const [favs, setFavs] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("dx_favs") || "[]")); } catch { return new Set(); }
+  });
   const [cart, setCart] = useState({});
   const [menuCat, setMenuCat] = useState("");
   const [orders, setOrders] = useState([]);
@@ -181,6 +183,24 @@ export default function App() {
       })))).catch(() => {});
   }, [token]);
 
+  // Buyurtma kuzatuv ekranida — real holatni har 10 soniyada tekshirish
+  useEffect(() => {
+    if (view !== "tracking" || !trackingOrder || !token) return;
+    const tick = () => {
+      fetch(API + "/api/orders/" + trackingOrder, { headers: { Authorization: "Bearer " + token } })
+        .then(r => r.ok ? r.json() : null)
+        .then(fresh => {
+          if (!fresh) return;
+          setOrders(prev => prev.map(o => o.id === trackingOrder
+            ? { ...o, stage: fresh.stage ?? o.stage, status: fresh.status || o.status }
+            : o));
+        }).catch(() => {});
+    };
+    const iv = setInterval(tick, 10000);
+    tick();
+    return () => clearInterval(iv);
+  }, [view, trackingOrder, token]);
+
   const activeAddr = addresses.find(a=>a.active) || addresses[0];
 
   const restWithDist = restaurants.map(r=>({...r, dist:haversine(userLoc.lat,userLoc.lon,r.lat,r.lon)}));
@@ -232,7 +252,7 @@ export default function App() {
   };
   const goBack = () => { if(checkoutOpen){setCheckoutOpen(false);return;} setView("main"); };
   const changeTab = t => { setTab(t); setView("main"); };
-  const toggleFav = (id,e) => {e&&e.stopPropagation();setFavs(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});};
+  const toggleFav = (id,e) => {e&&e.stopPropagation();setFavs(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);localStorage.setItem("dx_favs",JSON.stringify([...n]));return n;});};
   const addItem = id => {setCart(p=>({...p,[id]:(p[id]||0)+1}));const it=menuData.items.find(m=>m.id===id);addToast((it?.name||"Taom")+" qo'shildi ✓");};
   const removeItem = id => setCart(p=>{const n={...p};n[id]>1?n[id]--:delete n[id];return n;});
 
@@ -447,7 +467,7 @@ export default function App() {
   if(view==="tracking") {
     const ord = orders.find(o=>o.id===trackingOrder);
     if(!ord) return null;
-    const pct = Math.round((ord.stage/(ORDER_STAGES.length-1))*100);
+    const pct = Math.round(((ord.stage+1)/ORDER_STAGES.length)*100);
     return (
       <div style={W}>
         <style>{CSS}</style>
@@ -461,7 +481,7 @@ export default function App() {
           <div style={{background:ord.restoBg,borderRadius:20,padding:"20px",marginBottom:20,textAlign:"center"}}>
             <div style={{fontSize:48,marginBottom:8}}>{STAGE_ICONS[ord.stage]}</div>
             <div style={{color:"white",fontWeight:900,fontSize:18,marginBottom:4}}>{ORDER_STAGES[ord.stage]}</div>
-            {ord.stage<3&&<div style={{color:"rgba(255,255,255,.8)",fontSize:13}}>~{ord.eta - ord.stage*8} daqiqa qoldi</div>}
+            {ord.stage<3&&<div style={{color:"rgba(255,255,255,.8)",fontSize:13}}>~{Math.max(5, (ord.eta||30) - ord.stage*8)} daqiqa qoldi</div>}
           </div>
           <div style={{background:"white",borderRadius:20,padding:"20px",marginBottom:16,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
             <div style={{marginBottom:16}}>
@@ -812,7 +832,7 @@ export default function App() {
       <style>{CSS}</style>
 
       {toasts.map(t=>(
-        <div key={t.id} style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",background:t.type==="err"?"#dc2626":"#1a1a2e",color:"white",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:700,zIndex:9999,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,.3)",transition:"all .3s"}}>
+        <div key={t.id} style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",background:t.type==="err"?"#dc2626":"#1a1a2e",color:"white",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:700,zIndex:9999,maxWidth:"88%",textAlign:"center",boxShadow:"0 4px 20px rgba(0,0,0,.3)",transition:"all .3s"}}>
           {t.msg}
         </div>
       ))}
@@ -956,15 +976,16 @@ export default function App() {
             </div>
           </div>
           {!searchQ&&(
-            <div style={{padding:"16px 16px 4px"}}>
-              <div style={{fontWeight:900,fontSize:15,color:"#1a1a1a",marginBottom:12}}>Kategoriyalar</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+            <div style={{padding:"14px 16px 4px"}}>
+              <div style={{fontWeight:900,fontSize:15,color:"#1a1a1a",marginBottom:10}}>Kategoriyalar</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
                 {CATS.filter(c=>c.id!=="all").map(c=>(
-                  <button key={c.id} onClick={()=>{setHomeCat(c.id);setTab("home");}} style={{display:"flex",alignItems:"center",gap:12,background:"white",border:"none",borderRadius:16,padding:"14px 16px",cursor:"pointer",boxShadow:"0 2px 10px rgba(0,0,0,.06)",textAlign:"left"}}>
-                    <span style={{fontSize:24}}>{c.e}</span><span style={{fontWeight:700,fontSize:13,color:"#1a1a1a"}}>{c.label}</span>
+                  <button key={c.id} onClick={()=>{setHomeCat(c.id);setTab("home");}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,background:"white",border:"none",borderRadius:14,padding:"12px 6px",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
+                    <span style={{fontSize:24}}>{c.e}</span><span style={{fontWeight:700,fontSize:11,color:"#1a1a1a",textAlign:"center"}}>{c.label}</span>
                   </button>
                 ))}
               </div>
+              <div style={{fontWeight:900,fontSize:15,color:"#1a1a1a",marginBottom:10}}>Barcha restoranlar</div>
             </div>
           )}
           <div style={{padding:"0 16px 100px"}}>
