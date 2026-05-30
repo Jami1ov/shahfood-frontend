@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Bell, Heart, Clock, Star, Home, ShoppingBag, ArrowLeft, Plus, Minus, User, ChevronRight, Filter, CreditCard, Phone, LogOut, CheckCircle, Package, Bike, HelpCircle, Edit3, Trash2, X, Navigation, Tag, MessageSquare, BarChart2, Users, Settings, PlusCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Search, MapPin, Heart, Clock, Star, Home, ShoppingBag, ArrowLeft, Plus, Minus, User, ChevronRight, Filter, CreditCard, Phone, LogOut, CheckCircle, Edit3, X, Navigation, RefreshCw } from "lucide-react";
 
 const P = "#F97316";
 
@@ -28,50 +28,100 @@ const haversine = (lat1,lon1,lat2,lon2) => {
 
 const SHAHRISABZ = {lat:39.0593, lon:66.8487};
 
-const ALL_REST = [
-  {id:1,name:"Shahrisabz Palace",cats:["uzbek","wedding"],rating:4.8,reviews:247,fee:8000,min:30000,bg:"linear-gradient(145deg,#c27842,#e8a96a)",e:"🏛️",open:true,badge:"Mashhur",lat:39.0601,lon:66.8452,address:"Amir Temur ko'chasi, 12",phone:"+998 97 111 22 33",
-   menuCats:["Birinchi taom","Ikkinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
-   menu:[{id:1,name:"Manti (6 ta)",price:22000,desc:"Qo'zilikli, qaymoq bilan",cat:"Birinchi taom"},{id:2,name:"Somsa (2 ta)",price:10000,desc:"Tandirda pishirilgan",cat:"Birinchi taom"},{id:3,name:"Chuchvara",price:18000,desc:"Qaymoq bilan",cat:"Birinchi taom"},{id:4,name:"Osh (plov)",price:25000,desc:"Qo'zilikli milliy plov",cat:"Ikkinchi taom"},{id:5,name:"Shashlik (4 ta)",price:32000,desc:"Qo'zi go'shtidan",cat:"Ikkinchi taom"},{id:6,name:"Lag'mon",price:18000,desc:"Qo'lda tortilgan",cat:"Ikkinchi taom"},{id:7,name:"Dimlama",price:24000,desc:"Sabzavotli go'sht",cat:"Ikkinchi taom"},{id:8,name:"Mastava",price:15000,desc:"An'anaviy guruchli",cat:"Sho'rvalar"},{id:9,name:"Sho'rva",price:14000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:10,name:"Achichuk",price:10000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:11,name:"Toshkent salati",price:12000,desc:"Mol tili bilan",cat:"Salatlar"},{id:12,name:"Tandir non (2 ta)",price:6000,desc:"Yangi pishirilgan",cat:"Non va garnir"},{id:13,name:"Ko'k choy",price:4000,desc:"An'anaviy",cat:"Ichimliklar"},{id:14,name:"Kompot",price:5000,desc:"Mevali",cat:"Ichimliklar"},{id:15,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"}]},
-  {id:2,name:"Temur Cafe",cats:["cafe","sweet"],rating:4.5,reviews:183,fee:6000,min:20000,bg:"linear-gradient(145deg,#1a6080,#2ba0cc)",e:"☕",open:true,badge:"Tez yetkazma",lat:39.0612,lon:66.8501,address:"Mustaqillik ko'chasi, 7",phone:"+998 90 222 33 44",
-   menuCats:["Kofe","Issiq ichimliklar","Non-pishiriqlar","Shirinliklar","Sovuq ichimliklar"],
-   menu:[{id:1,name:"Espresso",price:8000,desc:"Kuchli, aromatli",cat:"Kofe"},{id:2,name:"Cappuccino",price:12000,desc:"Qaymoqli, issiq",cat:"Kofe"},{id:3,name:"Latte",price:13000,desc:"Yumshoq ta'mli",cat:"Kofe"},{id:4,name:"Americano",price:9000,desc:"Kuchli, suvli",cat:"Kofe"},{id:5,name:"Raf kofe",price:15000,desc:"Qaymoqli, shirin",cat:"Kofe"},{id:6,name:"Choy (dastgoh)",price:7000,desc:"Ko'k yoki qora",cat:"Issiq ichimliklar"},{id:7,name:"Salep",price:10000,desc:"Issiq, foydali",cat:"Issiq ichimliklar"},{id:8,name:"Kakao",price:11000,desc:"Shokoladli",cat:"Issiq ichimliklar"},{id:9,name:"Croissant",price:9000,desc:"Yangi pishirilgan",cat:"Non-pishiriqlar"},{id:10,name:"Muffin",price:8000,desc:"Shokoladli",cat:"Non-pishiriqlar"},{id:11,name:"Cheesecake",price:22000,desc:"Klassik, qulupnaylik",cat:"Shirinliklar"},{id:12,name:"Tiramisu",price:20000,desc:"Italyan deserti",cat:"Shirinliklar"},{id:13,name:"Smoothie",price:14000,desc:"Mango, banan",cat:"Sovuq ichimliklar"},{id:14,name:"Fresh juice",price:12000,desc:"Limon, apelsin",cat:"Sovuq ichimliklar"}]},
-  {id:3,name:"Oq Saroy",cats:["uzbek","wedding"],rating:4.7,reviews:312,fee:10000,min:50000,bg:"linear-gradient(145deg,#6a4f9e,#9a7fd4)",e:"🕌",open:true,badge:"Premium",lat:39.0578,lon:66.8471,address:"Navruz maydoni, 1",phone:"+998 91 333 44 55",
-   menuCats:["Bosh taomlar","Sho'rvalar","Salatlar","To'y to'plamlari","Ichimliklar"],
-   menu:[{id:1,name:"Kabob (6 ta)",price:45000,desc:"Premium qo'zi go'shtdan",cat:"Bosh taomlar"},{id:2,name:"Plov (katta)",price:40000,desc:"4-5 kishiga",cat:"Bosh taomlar"},{id:3,name:"Ko'sa lag'mon",price:28000,desc:"Maxsus sous bilan",cat:"Bosh taomlar"},{id:4,name:"Sho'rva",price:18000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:5,name:"Mastava",price:16000,desc:"Guruchli",cat:"Sho'rvalar"},{id:6,name:"Mol tili salati",price:20000,desc:"Mayiz bilan",cat:"Salatlar"},{id:7,name:"Toshkent salati",price:14000,desc:"Klassik",cat:"Salatlar"},{id:8,name:"Nikoh oshi (10 kishi)",price:250000,desc:"To'yga maxsus",cat:"To'y to'plamlari"},{id:9,name:"Shashlik to'plami (20 ta)",price:150000,desc:"Aralash go'shtlar",cat:"To'y to'plamlari"},{id:10,name:"Limonad",price:8000,desc:"Uy qo'lda",cat:"Ichimliklar"},{id:11,name:"Choy dastgoh",price:5000,desc:"Ko'k yoki qora",cat:"Ichimliklar"}]},
-  {id:4,name:"Pizza House",cats:["pizza","fastfood"],rating:4.3,reviews:156,fee:7000,min:25000,bg:"linear-gradient(145deg,#c44000,#f07020)",e:"🍕",open:true,badge:"Chegirmalar",lat:39.0625,lon:66.8520,address:"Yosh avlod ko'chasi, 15",phone:"+998 93 444 55 66",
-   menuCats:["Pitstalar","Burgerlar","Salatlar","Qo'shimcha","Ichimliklar"],
-   menu:[{id:1,name:"Margarita (30sm)",price:35000,desc:"Mozzarella, klassik",cat:"Pitstalar"},{id:2,name:"Pepperoni (30sm)",price:42000,desc:"Qizil kolbasa",cat:"Pitstalar"},{id:3,name:"BBQ Chicken (35sm)",price:52000,desc:"Barbecue sous bilan",cat:"Pitstalar"},{id:4,name:"4 Cheese (30sm)",price:48000,desc:"To'rt turdagi pishloq",cat:"Pitstalar"},{id:5,name:"Classic Burger",price:22000,desc:"Mol go'sht, salat",cat:"Burgerlar"},{id:6,name:"Chicken Burger",price:24000,desc:"Qovurilgan tovuq",cat:"Burgerlar"},{id:7,name:"Double Smash",price:32000,desc:"Ikki kotlet",cat:"Burgerlar"},{id:8,name:"Cesar salati",price:20000,desc:"Tovuq, krekerlar",cat:"Salatlar"},{id:9,name:"Kartoshka fri (katta)",price:12000,desc:"Sous bilan",cat:"Qo'shimcha"},{id:10,name:"Nuggets (6 ta)",price:14000,desc:"Tovuq, sous",cat:"Qo'shimcha"},{id:11,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"},{id:12,name:"Limonad",price:10000,desc:"Uy qo'lda",cat:"Ichimliklar"}]},
-  {id:5,name:"Shakarchi",cats:["sweet","icecream","cafe"],rating:4.6,reviews:209,fee:5000,min:15000,bg:"linear-gradient(145deg,#b03070,#e060a0)",e:"🍰",open:true,badge:"Eng sevimli",lat:39.0590,lon:66.8510,address:"Ko'k gumbaz ko'chasi, 3",phone:"+998 94 555 66 77",
-   menuCats:["Muzqaymoq","Tortlar","Issiq shirinliklar","Ichimliklar"],
-   menu:[{id:1,name:"Sundae (3 shar)",price:12000,desc:"Vanil, shokolad, qulupnay",cat:"Muzqaymoq"},{id:2,name:"Muzqaymoq kone",price:7000,desc:"Bir shar, tanlov",cat:"Muzqaymoq"},{id:3,name:"Banana Split",price:22000,desc:"Klassik dessert",cat:"Muzqaymoq"},{id:4,name:"Tiramisu",price:22000,desc:"Italyan deserti",cat:"Tortlar"},{id:5,name:"Cheesecake kesmasi",price:20000,desc:"Qulupnaylik sous",cat:"Tortlar"},{id:6,name:"Tort kesmasi",price:18000,desc:"Kunlik assortiment",cat:"Tortlar"},{id:7,name:"Waffle",price:16000,desc:"Meva va qaymoq bilan",cat:"Issiq shirinliklar"},{id:8,name:"Pancake (3 ta)",price:14000,desc:"Asal va qaymoq",cat:"Issiq shirinliklar"},{id:9,name:"Milkshake",price:16000,desc:"Qalin, shirin",cat:"Ichimliklar"},{id:10,name:"Cappuccino",price:12000,desc:"Qaymoqli",cat:"Ichimliklar"}]},
-  {id:6,name:"Choyxona Gavhar",cats:["uzbek","soup"],rating:4.4,reviews:128,fee:6000,min:20000,bg:"linear-gradient(145deg,#0d7a5a,#1ab584)",e:"🫖",open:false,badge:"Halol",lat:39.0570,lon:66.8460,address:"Registon ko'chasi, 22",phone:"+998 99 666 77 88",
-   menuCats:["Birinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
-   menu:[{id:1,name:"Manti (6 ta)",price:16000,desc:"Uy qo'lda",cat:"Birinchi taom"},{id:2,name:"Chuchvara",price:16000,desc:"Qaymoq bilan",cat:"Birinchi taom"},{id:3,name:"Mastava",price:15000,desc:"An'anaviy",cat:"Sho'rvalar"},{id:4,name:"Sho'rva",price:14000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:5,name:"Naryn",price:22000,desc:"Uy qo'lda",cat:"Sho'rvalar"},{id:6,name:"Achichuk",price:9000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:7,name:"Tandirda non (2 ta)",price:6000,desc:"Yangi",cat:"Non va garnir"},{id:8,name:"Ko'k choy",price:4000,desc:"An'anaviy",cat:"Ichimliklar"},{id:9,name:"Kompot",price:5000,desc:"Mevali",cat:"Ichimliklar"},{id:10,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
-  {id:7,name:"Barbekyu King",cats:["bbq","fastfood"],rating:4.5,reviews:174,fee:8000,min:35000,bg:"linear-gradient(145deg,#2a1050,#8a1535)",e:"🔥",open:true,badge:"Kechgacha ochiq",lat:39.0640,lon:66.8530,address:"Yangi hayot ko'chasi, 9",phone:"+998 90 777 88 99",
-   menuCats:["Kabob va shashlik","Burgerlar","Salatlar","Qo'shimcha","Ichimliklar"],
-   menu:[{id:1,name:"Barbekyu to'plami",price:65000,desc:"8 ta shampurda aralash",cat:"Kabob va shashlik"},{id:2,name:"Qo'zi qovurma",price:42000,desc:"Piyoz, ziravorlar",cat:"Kabob va shashlik"},{id:3,name:"Tovuq shashlik (4 ta)",price:35000,desc:"Marinad qilingan",cat:"Kabob va shashlik"},{id:4,name:"Jigar shashlik (4 ta)",price:28000,desc:"Qo'zi jigari",cat:"Kabob va shashlik"},{id:5,name:"BBQ Burger",price:28000,desc:"Shashlik go'shti, lavash",cat:"Burgerlar"},{id:6,name:"Smash Burger",price:32000,desc:"Juicy kotlet",cat:"Burgerlar"},{id:7,name:"Cesar salati",price:18000,desc:"Tovuq, krekerlar",cat:"Salatlar"},{id:8,name:"Kartoshka fri",price:10000,desc:"Sous bilan",cat:"Qo'shimcha"},{id:9,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"},{id:10,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
-  {id:8,name:"Milliy Ta'm",cats:["uzbek"],rating:4.6,reviews:261,fee:7000,min:25000,bg:"linear-gradient(145deg,#2c3a9e,#5a6ee0)",e:"🍲",open:true,badge:"Halol",lat:39.0582,lon:66.8495,address:"Do'stlik ko'chasi, 18",phone:"+998 91 888 99 00",
-   menuCats:["Birinchi taom","Ikkinchi taom","Sho'rvalar","Salatlar","Ichimliklar"],
-   menu:[{id:1,name:"Chuchvara",price:16000,desc:"Qaymoq bilan",cat:"Birinchi taom"},{id:2,name:"Manti (6 ta)",price:20000,desc:"Qo'zilikli",cat:"Birinchi taom"},{id:3,name:"Dimlama",price:24000,desc:"Sabzavotli go'sht",cat:"Ikkinchi taom"},{id:4,name:"Qozon kabob",price:30000,desc:"Qozonda qovurilgan",cat:"Ikkinchi taom"},{id:5,name:"Osh ko'za (2 kishi)",price:38000,desc:"Alohida ko'zalarda",cat:"Ikkinchi taom"},{id:6,name:"Beshbarmak",price:35000,desc:"Qo'zi go'shti, xamir",cat:"Ikkinchi taom"},{id:7,name:"Mastava",price:15000,desc:"Guruchli",cat:"Sho'rvalar"},{id:8,name:"Sho'rva",price:14000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:9,name:"Achichuk",price:10000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:10,name:"Choy",price:4000,desc:"Ko'k yoki qora",cat:"Ichimliklar"},{id:11,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
-  {id:9,name:"Ice Dream",cats:["icecream","sweet"],rating:4.3,reviews:97,fee:5000,min:12000,bg:"linear-gradient(145deg,#3a8ac4,#80c4f0)",e:"🍦",open:true,badge:"Tez yetkazma",lat:39.0608,lon:66.8476,address:"Bahor ko'chasi, 5",phone:"+998 93 999 00 11",
-   menuCats:["Muzqaymoq","Kokteyllar","Shirinliklar"],
-   menu:[{id:1,name:"Sundae (katta)",price:18000,desc:"3 shar + meva + sous",cat:"Muzqaymoq"},{id:2,name:"Kone (1 shar)",price:7000,desc:"Tanlov: vanil, shokolad",cat:"Muzqaymoq"},{id:3,name:"Milkshake vanilli",price:16000,desc:"Qalin, shirin",cat:"Kokteyllar"},{id:4,name:"Strawberry shake",price:17000,desc:"Qulupnaylik",cat:"Kokteyllar"},{id:5,name:"Banana Split",price:22000,desc:"Klassik dessert",cat:"Shirinliklar"},{id:6,name:"Waffle ice cream",price:20000,desc:"Muzqaymoqli",cat:"Shirinliklar"}]},
-  {id:10,name:"Gulshan Oshxonasi",cats:["uzbek","soup"],rating:4.7,reviews:198,fee:6000,min:20000,bg:"linear-gradient(145deg,#4a8a20,#80c040)",e:"🌸",open:true,badge:"Oilaviy",lat:39.0595,lon:66.8465,address:"Ipak yo'li ko'chasi, 33",phone:"+998 97 011 22 33",
-   menuCats:["Birinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
-   menu:[{id:1,name:"Uyg'ur lag'mon",price:20000,desc:"Asl uyg'ur uslubida",cat:"Birinchi taom"},{id:2,name:"Chuchvara",price:16000,desc:"Uy qo'lda, qaymoqli",cat:"Birinchi taom"},{id:3,name:"Somsa (4 ta)",price:18000,desc:"Tandirda pishirilgan",cat:"Birinchi taom"},{id:4,name:"Shurpa",price:15000,desc:"Qo'zilikli, sabzavotli",cat:"Sho'rvalar"},{id:5,name:"Mastava",price:14000,desc:"Guruchli",cat:"Sho'rvalar"},{id:6,name:"Achichuk",price:9000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:7,name:"Tandirda non (2 ta)",price:6000,desc:"Yangi",cat:"Non va garnir"},{id:8,name:"Choy",price:4000,desc:"Ko'k",cat:"Ichimliklar"},{id:9,name:"Ayron",price:6000,desc:"Sovuq",cat:"Ichimliklar"}]},
-  {id:11,name:"Mehnat Oshxona",cats:["uzbek","soup"],rating:4.2,reviews:89,fee:5000,min:15000,bg:"linear-gradient(145deg,#8a4020,#c07040)",e:"🥘",open:true,badge:"Arzon",lat:39.0560,lon:66.8490,address:"Mehnat ko'chasi, 44",phone:"+998 90 122 33 44",
-   menuCats:["Birinchi taom","Sho'rvalar","Salatlar","Non va garnir","Ichimliklar"],
-   menu:[{id:1,name:"Osh",price:18000,desc:"Uy usulida",cat:"Birinchi taom"},{id:2,name:"Lag'mon",price:16000,desc:"Go'shtli",cat:"Birinchi taom"},{id:3,name:"Somsa (1 ta)",price:4000,desc:"Tandirda",cat:"Birinchi taom"},{id:4,name:"Sho'rva",price:12000,desc:"Qo'zilikli",cat:"Sho'rvalar"},{id:5,name:"Mastava",price:13000,desc:"Guruchli",cat:"Sho'rvalar"},{id:6,name:"Achichuk",price:8000,desc:"Pomidor, piyoz",cat:"Salatlar"},{id:7,name:"Tandirda non",price:4000,desc:"1 ta",cat:"Non va garnir"},{id:8,name:"Choy",price:3000,desc:"Ko'k",cat:"Ichimliklar"},{id:9,name:"Ayron",price:5000,desc:"Sovuq",cat:"Ichimliklar"}]},
-  {id:12,name:"Fast Burger",cats:["fastfood"],rating:4.1,reviews:142,fee:6000,min:18000,bg:"linear-gradient(145deg,#c44000,#f07020)",e:"🍔",open:true,badge:"Tezkor",lat:39.0618,lon:66.8508,address:"Sport ko'chasi, 6",phone:"+998 91 233 44 55",
-   menuCats:["Burgerlar","Snacklar","Salatlar","Ichimliklar"],
-   menu:[{id:1,name:"Classic Burger",price:22000,desc:"Mol go'sht, salat, sous",cat:"Burgerlar"},{id:2,name:"Chicken Burger",price:24000,desc:"Qovurilgan tovuq",cat:"Burgerlar"},{id:3,name:"Double Smash",price:32000,desc:"Ikki kotlet",cat:"Burgerlar"},{id:4,name:"Veggie Burger",price:20000,desc:"Sabzavotli",cat:"Burgerlar"},{id:5,name:"Kartoshka fri (katta)",price:12000,desc:"Sous bilan",cat:"Snacklar"},{id:6,name:"Nuggets (6 ta)",price:14000,desc:"Tovuq, sous",cat:"Snacklar"},{id:7,name:"Onion rings",price:10000,desc:"Qovurilgan",cat:"Snacklar"},{id:8,name:"Kolslo",price:9000,desc:"Karam salati",cat:"Salatlar"},{id:9,name:"Cesar salati",price:18000,desc:"Tovuq, krekerlar",cat:"Salatlar"},{id:10,name:"Cola (0.5l)",price:8000,desc:"Sovuq",cat:"Ichimliklar"},{id:11,name:"Fanta (0.5l)",price:8000,desc:"Apelsinli",cat:"Ichimliklar"},{id:12,name:"Milkshake",price:15000,desc:"Vanil yoki shokolad",cat:"Ichimliklar"}]},
-];
-
 const PROMCODES = {"DASTURXON10":{disc:10,label:"10% chegirma"},"YANGI50":{disc:50,label:"50% yetkazma"},"BIRINCHI":{disc:15,label:"15% chegirma"}};
 const ORDER_STAGES = ["Qabul qilindi","Tayyorlanmoqda","Kuryer yo'lda","Yetkazildi"];
 const STAGE_ICONS = ["✅","👨‍🍳","🛵","🎉"];
 const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","Kuryer yaxshi","Narx mos"];
 const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy taomlar",e:"🍲"},{id:"fastfood",label:"Fast Food",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Suyuq ovqatlar",e:"🥣"},{id:"bbq",label:"Gril & Kabob",e:"🍖"},{id:"drinks",label:"Ichimliklar",e:"🥤"}];
+
+const FALLBACK_MENUS = {
+  uzbek: {
+    categories: ["Birinchi taom", "Ikkinchi taom", "Salatlar", "Ichimliklar"],
+    items: [
+      ["Manti (6 ta)", "Qo'lda tugilgan, qaymoq bilan", 22000, "Birinchi taom"],
+      ["Chuchvara", "Mayda xamir, qaymoqli sous", 18000, "Birinchi taom"],
+      ["Osh", "Milliy guruchli osh", 25000, "Ikkinchi taom"],
+      ["Qozon kabob", "Kartoshka va go'sht bilan", 32000, "Ikkinchi taom"],
+      ["Achichuk", "Pomidor va piyoz salati", 10000, "Salatlar"],
+      ["Ko'k choy", "Issiq choy", 4000, "Ichimliklar"],
+    ],
+  },
+  fastfood: {
+    categories: ["Burgerlar", "Snacklar", "Ichimliklar"],
+    items: [
+      ["Classic Burger", "Mol go'shti, salat, maxsus sous", 26000, "Burgerlar"],
+      ["Chicken Burger", "Qovurilgan tovuq filesi", 24000, "Burgerlar"],
+      ["Kartoshka fri", "Sous bilan", 12000, "Snacklar"],
+      ["Nuggets (6 ta)", "Tovuq nuggets", 16000, "Snacklar"],
+      ["Cola 0.5L", "Sovuq ichimlik", 8000, "Ichimliklar"],
+    ],
+  },
+  pizza: {
+    categories: ["Pitstalar", "Qo'shimcha", "Ichimliklar"],
+    items: [
+      ["Margarita 30sm", "Mozzarella va pomidor sousi", 38000, "Pitstalar"],
+      ["Pepperoni 30sm", "Kolbasa va pishloq", 45000, "Pitstalar"],
+      ["Chicken BBQ 35sm", "Tovuq va BBQ sous", 54000, "Pitstalar"],
+      ["Kartoshka fri", "Sous bilan", 12000, "Qo'shimcha"],
+      ["Limonad", "Uy limonadi", 10000, "Ichimliklar"],
+    ],
+  },
+  cafe: {
+    categories: ["Kofe", "Pishiriqlar", "Shirinliklar", "Ichimliklar"],
+    items: [
+      ["Americano", "Klassik qora kofe", 9000, "Kofe"],
+      ["Cappuccino", "Sutli yumshoq kofe", 14000, "Kofe"],
+      ["Croissant", "Yangi pishirilgan", 12000, "Pishiriqlar"],
+      ["Cheesecake", "Qulupnay sousi bilan", 22000, "Shirinliklar"],
+      ["Fresh juice", "Tabiiy sharbat", 15000, "Ichimliklar"],
+    ],
+  },
+  sweet: {
+    categories: ["Muzqaymoq", "Shirinliklar", "Ichimliklar"],
+    items: [
+      ["Sundae", "3 shar muzqaymoq", 16000, "Muzqaymoq"],
+      ["Milkshake", "Qalin sutli kokteyl", 18000, "Ichimliklar"],
+      ["Waffle", "Meva va qaymoq bilan", 20000, "Shirinliklar"],
+      ["Tort bo'lagi", "Kunlik assortiment", 18000, "Shirinliklar"],
+    ],
+  },
+  bbq: {
+    categories: ["Kaboblar", "Setlar", "Salatlar", "Ichimliklar"],
+    items: [
+      ["Qo'zi shashlik", "4 shampur", 36000, "Kaboblar"],
+      ["Tovuq shashlik", "4 shampur", 30000, "Kaboblar"],
+      ["Aralash set", "2 kishilik kabob set", 78000, "Setlar"],
+      ["Achichuk", "Pomidor va piyoz", 10000, "Salatlar"],
+      ["Ayron", "Sovuq ichimlik", 7000, "Ichimliklar"],
+    ],
+  },
+};
+
+const getFallbackMenu = (restaurant) => {
+  const cats = Array.isArray(restaurant?.cats) ? restaurant.cats : [];
+  const kind = cats.find(c => FALLBACK_MENUS[c]) || "uzbek";
+  const template = FALLBACK_MENUS[kind];
+  const categories = template.categories.map((name, index) => ({
+    id: restaurant.id * 100 + index + 1,
+    restaurant_id: restaurant.id,
+    name,
+    sort_order: index + 1,
+    is_fallback: true,
+  }));
+  const categoryByName = Object.fromEntries(categories.map(c => [c.name, c.id]));
+  const items = template.items.map(([name, description, price, categoryName], index) => ({
+    id: restaurant.id * 1000 + index + 1,
+    restaurant_id: restaurant.id,
+    category_id: categoryByName[categoryName],
+    name,
+    description,
+    price,
+    image_url: null,
+    is_available: true,
+    is_fallback: true,
+  }));
+  return { categories, items };
+};
 
 export default function App() {
   const [view, setView] = useState("main");
@@ -133,7 +183,6 @@ export default function App() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
-  const [notifOn, setNotifOn] = useState(true);
   const [sortBy, setSortBy] = useState("distance");
 
   // ── Real auth (telefon → kod → token) ──
@@ -158,7 +207,7 @@ export default function App() {
   const normPhone = p => { const d = String(p || "").replace(/\D/g, ""); return d.startsWith("998") ? d : (d.length === 9 ? "998" + d : d); };
 
   const [editProfile, setEditProfile] = useState(false);
-  const timerRef = useRef({});
+  const toastIdRef = useRef(0);
 
   // Foydalanuvchini va manzillarini yuklash
   useEffect(() => {
@@ -177,7 +226,7 @@ export default function App() {
 
   // Buyurtmalar tarixini yuklash
   useEffect(() => {
-    if (!token) { setOrders([]); return; }
+    if (!token) { Promise.resolve().then(() => setOrders([])); return; }
     fetch(API + "/api/orders", { headers: { Authorization: "Bearer " + token } })
       .then(r => r.json())
       .then(data => Array.isArray(data) && setOrders(data.map(o => ({
@@ -220,7 +269,7 @@ export default function App() {
       // Ichki ekranga kirdik — tarixga bitta yozuv qo'shamiz
       window.history.pushState({ dxInner: true }, "");
     }
-  }, [view, checkoutOpen]);
+  }, [isInnerView]);
 
   useEffect(() => {
     const onPop = () => {
@@ -248,7 +297,7 @@ export default function App() {
   const cartTotal = cartSubtotal - promoDisc + (resto?.fee||0);
 
   const addToast = (msg, type="ok") => {
-    const id = Date.now();
+    const id = ++toastIdRef.current;
     setToasts(p=>[...p,{id,msg,type}]);
     setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2500);
   };
@@ -274,10 +323,21 @@ export default function App() {
     setMenuLoading(true);
     try {
       const m = await api.get(`/api/restaurants/${r.id}/menu`);
-      const cats = (m.categories || []).map(c => c.name);
-      setMenuData({ categories: m.categories || [], items: m.items || [] });
+      const loadedMenu = {
+        categories: m.categories || [],
+        items: m.items || [],
+      };
+      const menu = loadedMenu.items.length ? loadedMenu : getFallbackMenu(r);
+      const cats = menu.categories.map(c => c.name);
+      setMenuData(menu);
       if (cats.length) setMenuCat(cats[0]);
-    } catch (e) {}
+    } catch {
+      const menu = getFallbackMenu(r);
+      const cats = menu.categories.map(c => c.name);
+      setMenuData(menu);
+      if (cats.length) setMenuCat(cats[0]);
+      addToast("Namunaviy menyu yuklandi");
+    }
     setMenuLoading(false);
   };
   const goBack = () => { if(checkoutOpen){setCheckoutOpen(false);return;} setView("main"); };
@@ -413,8 +473,7 @@ export default function App() {
     </div>
   );
 
-  const BottomNav = () => {
-    return (
+  const bottomNav = (
     <div style={BN}>
       {[{id:"home",icon:Home,label:"Bosh sahifa"},{id:"search",icon:Search,label:"Qidiruv"},{id:"orders",icon:ShoppingBag,label:"Buyurtmalar"},{id:"profile",icon:User,label:"Profil"}].map(({id,icon:Icon,label})=>(
         <button key={id} onClick={()=>changeTab(id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",position:"relative"}}>
@@ -425,8 +484,7 @@ export default function App() {
         </button>
       ))}
     </div>
-    );
-  };
+  );
 
   const sendCode = () => {
     const phone = normPhone(loginPhone);
@@ -1207,7 +1265,7 @@ export default function App() {
         </>
       )}
 
-      <BottomNav/>
+      {bottomNav}
     </div>
   );
 }
