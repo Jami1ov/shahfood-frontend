@@ -1,4 +1,4 @@
-/* Dasturxon — responsive reset (mobil + desktop) */
+/* Dasturxon — responsive reset (JS orqali boshqariladi) */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -6,10 +6,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html {
-  width: 100%;
-  -webkit-text-size-adjust: 100%;
-}
+html { width: 100%; -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
@@ -22,22 +19,12 @@ body {
   overflow-x: hidden;
 }
 
-/* MOBIL (default): telefon kengligida, markazda */
+/* #root endi kenglikni cheklamaydi — App.jsx ichida W/WP konteynerlar nazorat qiladi */
 #root {
   width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
   min-height: 100vh;
   background: #FFF7ED;
   position: relative;
-}
-
-/* DESKTOP / LAPTOP (>= 900px): butun ekran kengligi */
-@media (min-width: 900px) {
-  #root {
-    max-width: 100%;
-    width: 100%;
-  }
 }
 
 img, svg, video { max-width: 100%; height: auto; }

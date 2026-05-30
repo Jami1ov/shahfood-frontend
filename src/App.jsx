@@ -71,7 +71,7 @@ const PROMCODES = {"DASTURXON10":{disc:10,label:"10% chegirma"},"YANGI50":{disc:
 const ORDER_STAGES = ["Qabul qilindi","Tayyorlanmoqda","Kuryer yo'lda","Yetkazildi"];
 const STAGE_ICONS = ["✅","👨‍🍳","🛵","🎉"];
 const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","Kuryer yaxshi","Narx mos"];
-const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"O'zbek taomi",e:"🍲"},{id:"fastfood",label:"Tezfud",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Sho'rva",e:"🥣"},{id:"bbq",label:"Barbekyu",e:"🔥"},{id:"icecream",label:"Muzqaymoq",e:"🍦"},{id:"wedding",label:"To'y",e:"🎊"}];
+const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy taomlar",e:"🍲"},{id:"fastfood",label:"Fast Food",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Suyuq ovqatlar",e:"🥣"},{id:"bbq",label:"Gril & Kabob",e:"🍖"},{id:"drinks",label:"Ichimliklar",e:"🥤"}];
 
 export default function App() {
   const [view, setView] = useState("main");
