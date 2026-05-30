@@ -34,6 +34,85 @@ const ORDER_STAGES = ["Qabul qilindi","Tayyorlanmoqda","Kuryer yo'lda","Yetkazil
 const STAGE_ICONS = ["✅","👨‍🍳","🛵","🎉"];
 const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","Kuryer yaxshi","Narx mos"];
 const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy taomlar",e:"🍲"},{id:"fastfood",label:"Fast Food",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Suyuq ovqatlar",e:"🥣"},{id:"bbq",label:"Gril & Kabob",e:"🍖"},{id:"drinks",label:"Ichimliklar",e:"🥤"}];
+const ORDER_CACHE_KEY = "dx_orders";
+
+const safeDate = value => {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
+const stageFromStatus = status => {
+  const text = String(status || "").toLowerCase();
+  if (text.includes("deliver") || text.includes("yetkaz")) return 3;
+  if (text.includes("road") || text.includes("yo'l") || text.includes("courier") || text.includes("kuryer")) return 2;
+  if (text.includes("prep") || text.includes("tayyor")) return 1;
+  return 0;
+};
+
+const clampStage = value => {
+  const stage = Number(value);
+  if (!Number.isFinite(stage)) return 0;
+  return Math.min(ORDER_STAGES.length - 1, Math.max(0, stage));
+};
+
+const normalizeOrder = (order = {}) => {
+  const rawItems = Array.isArray(order.items) ? order.items : [];
+  return {
+    ...order,
+    id: order.id || order.local_id || `local-${Date.now()}`,
+    resto: order.restaurants?.name || order.resto || order.restaurant_name || "Restoran",
+    restoId: order.restaurant_id || order.restoId,
+    restoE: order.restaurants?.emoji || order.restoE || "🍽️",
+    restoBg: order.restaurants?.bg_gradient || order.restoBg || "linear-gradient(145deg,#F97316,#fbbf24)",
+    items: rawItems.map(item => typeof item === "string"
+      ? { name: item, qty: 1, price: 0 }
+      : {
+        id: item.id,
+        name: item.name || "Taom",
+        qty: Number(item.qty || item.quantity) || 1,
+        price: Number(item.price) || 0,
+      }),
+    total: Number(order.total) || 0,
+    stage: clampStage(order.stage ?? stageFromStatus(order.status)),
+    eta: Number(order.estimated_minutes || order.eta) || 30,
+    status: order.status || "Qabul qilindi",
+    date: safeDate(order.created_at || order.date),
+    addr: order.address || order.addr || "",
+    pay: order.payment_method || order.pay || "",
+    reviewed: Boolean(order.reviewed),
+  };
+};
+
+const readStoredOrders = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(window.localStorage.getItem(ORDER_CACHE_KEY) || "[]").map(normalizeOrder);
+  } catch {
+    return [];
+  }
+};
+
+const writeStoredOrders = orders => {
+  if (typeof window === "undefined") return;
+  try {
+    const serializable = orders.slice(0, 50).map(order => ({
+      ...order,
+      date: order.date instanceof Date ? order.date.toISOString() : order.date,
+    }));
+    window.localStorage.setItem(ORDER_CACHE_KEY, JSON.stringify(serializable));
+  } catch {
+    // Saqlash ishlamasa ham asosiy buyurtma oqimini to'xtatmaymiz.
+  }
+};
+
+const mergeOrders = (...groups) => {
+  const merged = new Map();
+  groups.flat().filter(Boolean).map(normalizeOrder).forEach(order => {
+    const key = String(order.id);
+    merged.set(key, { ...(merged.get(key) || {}), ...order });
+  });
+  return [...merged.values()].sort((a, b) => safeDate(b.date) - safeDate(a.date));
+};
 
 const FALLBACK_MENUS = {
   uzbek: {
@@ -144,7 +223,7 @@ export default function App() {
   });
   const [cart, setCart] = useState({});
   const [menuCat, setMenuCat] = useState("");
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState(() => readStoredOrders());
   const [toasts, setToasts] = useState([]);
   const [userLoc, setUserLoc] = useState(SHAHRISABZ);
   const [locLoading, setLocLoading] = useState(false);
@@ -226,19 +305,19 @@ export default function App() {
 
   // Buyurtmalar tarixini yuklash
   useEffect(() => {
-    if (!token) { Promise.resolve().then(() => setOrders([])); return; }
+    if (!token) { Promise.resolve().then(() => setOrders(readStoredOrders())); return; }
     fetch(API + "/api/orders", { headers: { Authorization: "Bearer " + token } })
       .then(r => r.json())
-      .then(data => Array.isArray(data) && setOrders(data.map(o => ({
-        id: o.id,
-        resto: o.restaurants?.name || "—",
-        items: (o.items || []).map(i => `${i.qty}× ${i.name}`).join(", "),
-        total: o.total,
-        stage: Number(o.stage) || 0,
-        eta: Number(o.estimated_minutes || o.eta) || 30,
-        status: o.status,
-        date: new Date(o.created_at).toLocaleString("uz-UZ", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-      })))).catch(() => {});
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        setOrders(prev => {
+          const next = mergeOrders(data, prev, readStoredOrders());
+          writeStoredOrders(next);
+          return next;
+        });
+      }).catch(() => {
+        setOrders(prev => mergeOrders(prev, readStoredOrders()));
+      });
   }, [token]);
 
   // Buyurtma kuzatuv ekranida — real holatni har 10 soniyada tekshirish
@@ -249,9 +328,13 @@ export default function App() {
         .then(r => r.ok ? r.json() : null)
         .then(fresh => {
           if (!fresh) return;
-          setOrders(prev => prev.map(o => o.id === trackingOrder
-            ? { ...o, stage: fresh.stage ?? o.stage, status: fresh.status || o.status }
-            : o));
+          setOrders(prev => {
+            const next = prev.map(o => o.id === trackingOrder
+              ? normalizeOrder({ ...o, stage: fresh.stage ?? o.stage, status: fresh.status || o.status })
+              : o);
+            writeStoredOrders(next);
+            return next;
+          });
         }).catch(() => {});
     };
     const iv = setInterval(tick, 10000);
@@ -383,14 +466,18 @@ export default function App() {
     };
     api.post("/api/orders", orderPayload, authToken).then(apiOrd => {
       if (apiOrd?.error) { addToast(apiOrd.error, "err"); return; }
-      const ord = {
-        id: apiOrd.id, resto:resto.name, restoId:resto.id, restoE:resto.e, restoBg:resto.bg,
+      const ord = normalizeOrder({
+        id: apiOrd.id || `local-${Date.now()}`, resto:resto.name, restoId:resto.id, restoE:resto.e, restoBg:resto.bg,
         items, subtotal:cartSubtotal, discount:promoDisc, fee:resto.fee, total:cartTotal,
         date:new Date(), status:"Qabul qilindi", stage:0, eta:estDelivery(resto),
         addr:activeAddr.addr, pay:payMethod, noCall, courierNote,
         reviewed:false, stageTime:Date.now()
-      };
-      setOrders(prev=>[ord,...prev]);
+      });
+      setOrders(prev => {
+        const next = mergeOrders([ord], prev);
+        writeStoredOrders(next);
+        return next;
+      });
       setCart({}); setPromoApplied(null); setPromoCode(""); setCheckoutOpen(false);
       addToast("Buyurtma qabul qilindi! 🎉");
       setTrackingOrder(ord.id);
@@ -402,7 +489,11 @@ export default function App() {
 
   const submitReview = () => {
     if(!reviewOpen) return;
-    setOrders(prev=>prev.map(o=>o.id===reviewOpen.id?{...o,reviewed:true,rating:starRest,courierRating:starCourier,reviewTags,reviewText}:o));
+    setOrders(prev => {
+      const next = prev.map(o => o.id === reviewOpen.id ? { ...o, reviewed:true, rating:starRest, courierRating:starCourier, reviewTags, reviewText } : o);
+      writeStoredOrders(next);
+      return next;
+    });
     setRestaurants(prev=>prev.map(r=>{
       if(r.id===reviewOpen.restoId){
         const newR = +((r.rating*r.reviews+starRest)/(r.reviews+1)).toFixed(1);
