@@ -977,28 +977,22 @@ export default function App() {
       {tab==="home"&&(
         <>
           {isDesktop ? (
-            <div style={{background:"white",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 12px rgba(0,0,0,.06)",padding:"14px 0"}}>
-              <div style={{maxWidth:1200,margin:"0 auto",padding:"0 24px",display:"flex",alignItems:"center",gap:24}}>
+            <div style={{background:"white",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 12px rgba(0,0,0,.06)",padding:"16px 0"}}>
+              <div style={{maxWidth:1100,margin:"0 auto",padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:18}}>
                 <div onClick={()=>{setHomeCat("all");setHomeQ("");}} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0}}>
                   <span style={{fontSize:28}}>🍽️</span>
                   <span style={{fontWeight:900,fontSize:22,color:P,letterSpacing:-0.5}}>Dasturxon</span>
                 </div>
-                <div style={{flex:1,display:"flex",alignItems:"center",gap:10,background:"#f5f0eb",borderRadius:14,padding:"12px 18px",maxWidth:560}}>
-                  <Search size={20} color="#aaa"/>
-                  <input type="text" value={homeQ} onChange={e=>setHomeQ(e.target.value)} placeholder="Restoran yoki taom qidirish..." style={{border:"none",outline:"none",flex:1,fontSize:15,fontFamily:"inherit",background:"transparent",color:"#1a1a1a",padding:0}}/>
-                  {homeQ&&<button onClick={()=>setHomeQ("")} style={{border:"none",background:"none",cursor:"pointer",color:"#aaa",fontSize:18,lineHeight:1}}>✕</button>}
-                </div>
-                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
-                  <MapPin size={18} color={P} strokeWidth={2.5}/>
-                  <span style={{fontWeight:800,fontSize:14,color:"#1a1a1a",whiteSpace:"nowrap",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis"}}>{activeAddr.addr.includes("(")?activeAddr.addr.split("(")[0].trim():activeAddr.addr}</span>
+                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:10,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",minWidth:0,maxWidth:460,padding:"0 8px"}}>
+                  <MapPin size={18} color={P} strokeWidth={2.5} style={{flexShrink:0}}/>
+                  <span style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:0}}>
+                    <span style={{fontSize:12,color:"#888",fontWeight:700,lineHeight:1.2}}>{activeAddr.label}</span>
+                    <span style={{fontWeight:900,fontSize:16,color:"#1a1a1a",whiteSpace:"nowrap",maxWidth:360,overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.3}}>{activeAddr.addr.includes("(")?activeAddr.addr.split("(")[0].trim():activeAddr.addr}</span>
+                  </span>
+                  {locLoading?<RefreshCw size={14} color={P}/>:<ChevronRight size={15} color="#aaa"/>}
                 </button>
-                <button onClick={()=>setTab("orders")} style={{position:"relative",background:"#f5f0eb",border:"none",borderRadius:12,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                  <ShoppingBag size={20} color="#555"/>
-                  {orders.filter(o=>o.stage<3).length>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#ef4444",color:"white",fontSize:10,fontWeight:800,minWidth:18,height:18,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{orders.filter(o=>o.stage<3).length}</span>}
-                </button>
-                <button onClick={()=>setTab("profile")} style={{background:P,border:"none",borderRadius:12,padding:"0 18px",height:44,display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0}}>
+                <button onClick={()=>setTab("profile")} style={{background:P,border:"none",borderRadius:14,width:46,height:46,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
                   <User size={18} color="white"/>
-                  <span style={{color:"white",fontWeight:700,fontSize:14}}>{isLoggedIn?(userName||"Profil"):"Kirish"}</span>
                 </button>
               </div>
             </div>
@@ -1024,8 +1018,7 @@ export default function App() {
           </div>
           )}
 
-          {!isDesktop&&(
-          <div style={{padding:"14px 16px 4px",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
+          <div style={{padding:isDesktop?"18px 16px 4px":"14px 16px 4px",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
             <div style={{display:"flex",gap:10}}>
               <div style={{flex:1,display:"flex",alignItems:"center",gap:10,background:"white",borderRadius:16,padding:"12px 16px",boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
                 <Search size={18} color="#ccc"/>
@@ -1037,7 +1030,6 @@ export default function App() {
               </button>
             </div>
           </div>
-          )}
 
           {!homeQ&&(
             <div style={{margin:"14px auto 4px",padding:"0 16px",maxWidth:isDesktop?1100:"100%",width:"100%"}}>
