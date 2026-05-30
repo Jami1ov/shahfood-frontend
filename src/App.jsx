@@ -35,6 +35,8 @@ const STAGE_ICONS = ["✅","👨‍🍳","🛵","🎉"];
 const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","Kuryer yaxshi","Narx mos"];
 const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy taomlar",e:"🍲"},{id:"fastfood",label:"Fast Food",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Suyuq ovqatlar",e:"🥣"},{id:"bbq",label:"Gril & Kabob",e:"🍖"},{id:"drinks",label:"Ichimliklar",e:"🥤"}];
 const ORDER_CACHE_KEY = "dx_orders";
+const CUSTOM_MENU_KEY = "dx_custom_menus";
+const COURIERS = ["Azizbek", "Sardor", "Javohir", "Bekzod"];
 
 const safeDate = value => {
   const date = value ? new Date(value) : new Date();
@@ -128,6 +130,26 @@ const readStoredOrders = () => {
   } catch {
     window.localStorage.removeItem(ORDER_CACHE_KEY);
     return [];
+  }
+};
+
+const readCustomMenus = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CUSTOM_MENU_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    window.localStorage.removeItem(CUSTOM_MENU_KEY);
+    return {};
+  }
+};
+
+const writeCustomMenus = menus => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CUSTOM_MENU_KEY, JSON.stringify(menus));
+  } catch {
+    // Demo admin ma'lumotlari saqlanmasa ham ilova ishlashda davom etadi.
   }
 };
 
@@ -313,14 +335,26 @@ export default function App() {
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminTab, setAdminTab] = useState("overview");
   const [restaurants, setRestaurants] = useState([]);
+  const [customMenus, setCustomMenus] = useState(() => readCustomMenus());
+  const [adminRestaurantId, setAdminRestaurantId] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [newItem, setNewItem] = useState({ name: "", description: "", price: "", category: "" });
   const [loading, setLoading] = useState(true);
+  const adminIdRef = useRef(900000);
 
   useEffect(() => {
     api.get("/api/restaurants").then(data => {
       const list = Array.isArray(data) && data.length ? data : FALLBACK_RESTAURANTS;
-      setRestaurants(list.map(normalizeRestaurant));
+      const normalized = list.map(normalizeRestaurant);
+      setRestaurants(normalized);
+      setAdminRestaurantId(prev => prev || String(normalized[0]?.id || ""));
       setLoading(false);
-    }).catch(() => { setRestaurants(FALLBACK_RESTAURANTS.map(normalizeRestaurant)); setLoading(false); });
+    }).catch(() => {
+      const fallback = FALLBACK_RESTAURANTS.map(normalizeRestaurant);
+      setRestaurants(fallback);
+      setAdminRestaurantId(prev => prev || String(fallback[0]?.id || ""));
+      setLoading(false);
+    });
   }, []);
   const [sortBy, setSortBy] = useState("distance");
 
@@ -466,16 +500,22 @@ export default function App() {
     setMenuLoading(true);
     try {
       const m = await api.get(`/api/restaurants/${r.id}/menu`);
+      const localMenu = customMenus[String(r.id)] || { categories: [], items: [] };
       const loadedMenu = {
-        categories: m.categories || [],
-        items: m.items || [],
+        categories: [...(m.categories || []), ...(localMenu.categories || [])],
+        items: [...(m.items || []), ...(localMenu.items || [])],
       };
       const menu = loadedMenu.items.length ? loadedMenu : getFallbackMenu(r);
       const cats = menu.categories.map(c => c.name);
       setMenuData(menu);
       if (cats.length) setMenuCat(cats[0]);
     } catch {
-      const menu = getFallbackMenu(r);
+      const localMenu = customMenus[String(r.id)] || { categories: [], items: [] };
+      const fallback = getFallbackMenu(r);
+      const menu = {
+        categories: [...fallback.categories, ...(localMenu.categories || [])],
+        items: [...fallback.items, ...(localMenu.items || [])],
+      };
       const cats = menu.categories.map(c => c.name);
       setMenuData(menu);
       if (cats.length) setMenuCat(cats[0]);
@@ -562,6 +602,80 @@ export default function App() {
     }));
     addToast("Sharhingiz qabul qilindi! Rahmat ⭐");
     setReviewOpen(null); setStarRest(0); setStarCourier(0); setReviewTags([]); setReviewText("");
+  };
+
+  const updateOrder = (id, patch) => {
+    setOrders(prev => {
+      const next = prev.map(o => String(o.id) === String(id) ? normalizeOrder({ ...o, ...patch }) : o);
+      writeStoredOrders(next);
+      return next;
+    });
+  };
+
+  const nextOrderStage = id => {
+    const order = orders.find(o => String(o.id) === String(id));
+    if (!order) return;
+    const nextStage = clampStage(order.stage + 1);
+    updateOrder(id, { stage: nextStage, status: ORDER_STAGES[nextStage] });
+    addToast(ORDER_STAGES[nextStage] + " ✓");
+  };
+
+  const selectedAdminRestaurant = restaurants.find(r => String(r.id) === String(adminRestaurantId)) || restaurants[0];
+  const selectedAdminMenu = selectedAdminRestaurant
+    ? customMenus[String(selectedAdminRestaurant.id)] || getFallbackMenu(selectedAdminRestaurant)
+    : { categories: [], items: [] };
+
+  const saveCustomMenu = (restaurantId, menu) => {
+    setCustomMenus(prev => {
+      const next = { ...prev, [String(restaurantId)]: menu };
+      writeCustomMenus(next);
+      return next;
+    });
+    if (resto && String(resto.id) === String(restaurantId)) {
+      setMenuData(menu);
+      if (menu.categories.length && !menu.categories.some(c => c.name === menuCat)) setMenuCat(menu.categories[0].name);
+    }
+  };
+
+  const addAdminCategory = () => {
+    if (!selectedAdminRestaurant || !newCategory.trim()) return;
+    const current = customMenus[String(selectedAdminRestaurant.id)] || getFallbackMenu(selectedAdminRestaurant);
+    const exists = current.categories.some(c => c.name.toLowerCase() === newCategory.trim().toLowerCase());
+    if (exists) { addToast("Bu bo'lim bor", "err"); return; }
+    const category = {
+      id: selectedAdminRestaurant.id * 10000 + ++adminIdRef.current,
+      restaurant_id: selectedAdminRestaurant.id,
+      name: newCategory.trim(),
+      sort_order: current.categories.length + 1,
+      is_custom: true,
+    };
+    saveCustomMenu(selectedAdminRestaurant.id, { ...current, categories: [...current.categories, category] });
+    setNewCategory("");
+    setNewItem(prev => ({ ...prev, category: category.name }));
+    addToast("Bo'lim qo'shildi ✓");
+  };
+
+  const addAdminItem = () => {
+    if (!selectedAdminRestaurant || !newItem.name.trim()) return;
+    const current = customMenus[String(selectedAdminRestaurant.id)] || getFallbackMenu(selectedAdminRestaurant);
+    const category = current.categories.find(c => c.name === newItem.category) || current.categories[0];
+    if (!category) { addToast("Avval bo'lim qo'shing", "err"); return; }
+    const price = Number(String(newItem.price).replace(/\D/g, ""));
+    if (!price) { addToast("Narx kiriting", "err"); return; }
+    const item = {
+      id: selectedAdminRestaurant.id * 100000 + ++adminIdRef.current,
+      restaurant_id: selectedAdminRestaurant.id,
+      category_id: category.id,
+      name: newItem.name.trim(),
+      description: newItem.description.trim(),
+      price,
+      image_url: null,
+      is_available: true,
+      is_custom: true,
+    };
+    saveCustomMenu(selectedAdminRestaurant.id, { ...current, items: [item, ...current.items] });
+    setNewItem({ name: "", description: "", price: "", category: category.name });
+    addToast("Taom menyuga qo'shildi ✓");
   };
 
   const menuItems = menuCat ? menuData.items.filter(m => menuData.categories.find(c => c.id === m.category_id)?.name === menuCat) : menuData.items;
@@ -1003,7 +1117,7 @@ export default function App() {
           <button onClick={()=>setAdminOpen(false)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><X size={18} color="white"/></button>
         </div>
         <div className="hs" style={{background:"#1a1a2e",padding:"0 16px 16px",gap:6}}>
-          {[["overview","📊","Ko'rsatkich"],["orders","📦","Buyurtmalar"],["restaurants","🍽️","Restoranlar"],["promos","🎁","Promokodlar"]].map(([t,e,l])=>(
+          {[["overview","📊","Ko'rsatkich"],["orders","📦","Buyurtmalar"],["restaurants","🍽️","Restoran"],["menu","➕","Menyu"],["couriers","🛵","Kuryer"],["bots","🤖","Botlar"],["promos","🎁","Promokod"]].map(([t,e,l])=>(
             <button key={t} onClick={()=>setAdminTab(t)} style={{flexShrink:0,padding:"8px 14px",borderRadius:20,border:"none",fontFamily:"inherit",fontWeight:700,fontSize:12,cursor:"pointer",background:adminTab===t?"white":"rgba(255,255,255,.12)",color:adminTab===t?"#1a1a2e":"white"}}>
               {e} {l}
             </button>
@@ -1050,8 +1164,21 @@ export default function App() {
                     </div>
                     <span style={{background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{ORDER_STAGES[o.stage]}</span>
                   </div>
-                  <div style={{fontSize:12,color:"#555",marginBottom:6}}>{o.items.map(i=>i.name+"×"+i.qty).join(", ")}</div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:"#888"}}>📍 {o.addr}</span><span style={{fontWeight:900,fontSize:14,color:P}}>{fmt(o.total)}</span></div>
+                  <div style={{fontSize:12,color:"#555",marginBottom:6}}>{normalizeOrderItems(o).map(i=>i.name+"×"+i.qty).join(", ") || "Mahsulot ma'lumoti yo'q"}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:12,marginBottom:10}}><span style={{fontSize:12,color:"#888"}}>📍 {o.addr || "Manzil ko'rsatilmagan"}</span><span style={{fontWeight:900,fontSize:14,color:P,whiteSpace:"nowrap"}}>{fmt(o.total)}</span></div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                    {COURIERS.map(name=>(
+                      <button key={name} onClick={()=>{updateOrder(o.id,{courier:name});addToast(name+" tayinlandi ✓");}} style={{border:"none",borderRadius:20,padding:"6px 10px",fontSize:11,fontWeight:800,fontFamily:"inherit",cursor:"pointer",background:o.courier===name?"#dcfce7":"#f5f5f5",color:o.courier===name?"#16a34a":"#666"}}>
+                        🛵 {name}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {o.stage<3&&<button className="ob" onClick={()=>nextOrderStage(o.id)} style={{padding:"10px",fontSize:12,borderRadius:12}}>Keyingi holat</button>}
+                    <button onClick={()=>updateOrder(o.id,{stage:0,status:ORDER_STAGES[0]})} style={{padding:"10px",borderRadius:12,border:`1.5px solid ${P}`,background:"white",color:P,fontFamily:"inherit",fontWeight:800,fontSize:12,cursor:"pointer"}}>Qayta qabul</button>
+                    <button onClick={()=>updateOrder(o.id,{stage:2,status:ORDER_STAGES[2]})} style={{padding:"10px",borderRadius:12,border:"none",background:"#eff6ff",color:"#2563eb",fontFamily:"inherit",fontWeight:800,fontSize:12,cursor:"pointer"}}>Kuryer yo'lda</button>
+                    <button onClick={()=>updateOrder(o.id,{stage:3,status:ORDER_STAGES[3]})} style={{padding:"10px",borderRadius:12,border:"none",background:"#dcfce7",color:"#16a34a",fontFamily:"inherit",fontWeight:800,fontSize:12,cursor:"pointer"}}>Yetkazildi</button>
+                  </div>
                 </div>
               ))}
               {orders.length===0&&<div style={{textAlign:"center",color:"#aaa",fontSize:14,padding:"40px 0"}}>Hali buyurtmalar yo'q</div>}
@@ -1077,6 +1204,87 @@ export default function App() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {adminTab==="menu"&&(
+            <div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:10}}>Restoran egasi menyusi</div>
+                <select value={adminRestaurantId} onChange={e=>{setAdminRestaurantId(e.target.value);setNewItem({ name:"", description:"", price:"", category:"" });}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #eadcc8",fontFamily:"inherit",fontWeight:800,marginBottom:12}}>
+                  {restaurants.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="Yangi bo'lim nomi" style={{flex:1}}/>
+                  <button className="ob" onClick={addAdminCategory} style={{padding:"10px 14px",borderRadius:12,fontSize:13}}>Qo'shish</button>
+                </div>
+              </div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:12}}>Taom qo'shish</div>
+                <input value={newItem.name} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))} placeholder="Taom nomi" style={{width:"100%",marginBottom:8}}/>
+                <input value={newItem.price} onChange={e=>setNewItem(p=>({...p,price:e.target.value}))} placeholder="Narx, masalan 25000" inputMode="numeric" style={{width:"100%",marginBottom:8}}/>
+                <textarea value={newItem.description} onChange={e=>setNewItem(p=>({...p,description:e.target.value}))} placeholder="Qisqa izoh" rows={2} style={{width:"100%",marginBottom:8}}/>
+                <select value={newItem.category || selectedAdminMenu.categories[0]?.name || ""} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))} style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #eadcc8",fontFamily:"inherit",fontWeight:800,marginBottom:12}}>
+                  {selectedAdminMenu.categories.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+                <button className="ob" onClick={addAdminItem} style={{width:"100%",padding:"13px",fontSize:14,borderRadius:14}}>Taomni menyuga qo'shish</button>
+              </div>
+              <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:10}}>Menyu ko'rinishi</div>
+              {selectedAdminMenu.categories.map(c=>(
+                <div key={c.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                  <div style={{fontWeight:900,fontSize:14,color:P,marginBottom:8}}>{c.name}</div>
+                  {selectedAdminMenu.items.filter(i=>i.category_id===c.id).map(i=>(
+                    <div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"6px 0",borderTop:"1px solid #f5e6d8"}}>
+                      <div>
+                        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{i.name}</div>
+                        <div style={{fontSize:11,color:"#aaa"}}>{i.description}</div>
+                      </div>
+                      <div style={{fontWeight:900,fontSize:13,color:P,whiteSpace:"nowrap"}}>{fmt(i.price)}</div>
+                    </div>
+                  ))}
+                  {selectedAdminMenu.items.filter(i=>i.category_id===c.id).length===0&&<div style={{fontSize:12,color:"#aaa"}}>Bu bo'limda hali taom yo'q</div>}
+                </div>
+              ))}
+            </div>
+          )}
+          {adminTab==="couriers"&&(
+            <div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8}}>Kuryer navbati</div>
+                <div style={{fontSize:13,color:"#888",lineHeight:1.5}}>Bu panel buyurtmani kuryerga tayinlash va yetkazish holatini nazorat qilish uchun. Bot server kodi alohida bo'lsa, shu statuslar backendga ulanadi.</div>
+              </div>
+              {COURIERS.map(name=>{
+                const assigned = orders.filter(o=>o.courier===name && o.stage<3);
+                return (
+                  <div key={name} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontWeight:900,fontSize:15,color:"#1a1a1a"}}>🛵 {name}</div>
+                      <span style={{background:assigned.length?"#FFF0E5":"#dcfce7",color:assigned.length?P:"#16a34a",fontWeight:800,fontSize:12,padding:"4px 10px",borderRadius:20}}>{assigned.length ? `${assigned.length} ta zakas` : "Bo'sh"}</span>
+                    </div>
+                    {assigned.map(o=><div key={o.id} style={{fontSize:12,color:"#555",padding:"4px 0"}}>{o.resto} · {fmt(o.total)} · {ORDER_STAGES[o.stage]}</div>)}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {adminTab==="bots"&&(
+            <div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8}}>Dasturxon bot</div>
+                <div style={{fontSize:13,color:"#888",lineHeight:1.5,marginBottom:12}}>Login kodi Telegram orqali kelishi ishlayapti. Bot linki mijoz login ekranida ham ko'rsatilgan.</div>
+                <a href="https://t.me/dasturxon_app_bot" target="_blank" rel="noreferrer" style={{display:"inline-block",background:P,color:"white",fontWeight:900,fontSize:13,padding:"10px 14px",borderRadius:12,textDecoration:"none"}}>@dasturxon_app_bot</a>
+              </div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8}}>Kuryer bot oqimi</div>
+                {["Yangi zakas kelganda restoran/admin xabar oladi","Restoran qabul qilganda kuryerga tayinlanadi","Kuryer 'Yo'lga chiqdim' va 'Yetkazildi' statuslarini bosadi","Mijoz Buyurtmalarim ichida statusni ko'radi"].map((text,i)=>(
+                  <div key={text} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderTop:i?"1px solid #f5e6d8":"none"}}>
+                    <CheckCircle size={16} color="#16a34a"/><span style={{fontSize:13,color:"#555",fontWeight:700}}>{text}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{background:"#1a1a2e",color:"white",borderRadius:16,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,.08)"}}>
+                <div style={{fontWeight:900,fontSize:15,marginBottom:8}}>Bot serverda tekshiriladigan joylar</div>
+                <div style={{fontSize:12,lineHeight:1.6,opacity:.85}}>BOT_TOKEN, webhook URL, order-created notification, courier status callback, restoran owner chat_id. Bu frontendda tayyorlandi, server kodi alohida repoda bo'lsa keyingi qadamda ulaymiz.</div>
+              </div>
             </div>
           )}
           {adminTab==="promos"&&(
@@ -1422,6 +1630,7 @@ export default function App() {
               ))}
             </div>
             <div style={{background:"white",borderRadius:20,padding:"4px 16px",marginBottom:14,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
+              <div className="pr" onClick={()=>setAdminOpen(true)}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:36,height:36,borderRadius:10,background:"#FFF0E5",display:"flex",alignItems:"center",justifyContent:"center"}}>⚙️</div><span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>Admin / Restoran paneli</span></div><ChevronRight size={18} color="#ddd"/></div>
               <div className="pr"><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:36,height:36,borderRadius:10,background:"#FFF0E5",display:"flex",alignItems:"center",justifyContent:"center"}}><MapPin size={17} color={P}/></div><span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>Manzillarim</span></div><ChevronRight size={18} color="#ddd"/></div>
               <div className="pr"><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:36,height:36,borderRadius:10,background:"#FFF0E5",display:"flex",alignItems:"center",justifyContent:"center"}}><CreditCard size={17} color={P}/></div><span style={{fontWeight:700,fontSize:14,color:"#1a1a1a"}}>To'lov usullari</span></div><ChevronRight size={18} color="#ddd"/></div>
               <div className="pr" style={{borderBottom:"none"}} onClick={()=>{localStorage.removeItem("dx_token");localStorage.removeItem("dx_user");setToken(null);setUser(null);setView("main");addToast("Chiqdingiz");}}>
