@@ -75,11 +75,13 @@ const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy 
 
 export default function App() {
   const [view, setView] = useState("main");
-  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= 900);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= 1024);
   useEffect(() => {
-    const onResize = () => setIsDesktop(window.innerWidth >= 900);
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+    onResize();
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); };
   }, []);
   const [tab, setTab] = useState("home");
   const [resto, setResto] = useState(null);
@@ -412,7 +414,6 @@ export default function App() {
   );
 
   const BottomNav = () => {
-    if (isDesktop) return null;
     return (
     <div style={BN}>
       {[{id:"home",icon:Home,label:"Bosh sahifa"},{id:"search",icon:Search,label:"Qidiruv"},{id:"orders",icon:ShoppingBag,label:"Buyurtmalar"},{id:"profile",icon:User,label:"Profil"}].map(({id,icon:Icon,label})=>(

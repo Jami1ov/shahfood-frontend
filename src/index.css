@@ -1,37 +1,14 @@
-/* Dasturxon — responsive reset (JS orqali boshqariladi) */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
+/* Dasturxon — responsive reset */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html { width: 100%; -webkit-text-size-adjust: 100%; }
-
 body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
+  margin: 0; padding: 0; width: 100%; min-height: 100vh;
   background: #FFF7ED;
   font-family: 'Nunito', 'Segoe UI', Roboto, sans-serif;
-  color: #1a1a1a;
-  overflow-x: hidden;
+  color: #1a1a1a; overflow-x: hidden;
 }
-
-/* #root endi kenglikni cheklamaydi — App.jsx ichida W/WP konteynerlar nazorat qiladi */
-#root {
-  width: 100%;
-  min-height: 100vh;
-  background: #FFF7ED;
-  position: relative;
-}
-
+#root { width: 100%; min-height: 100vh; background: #FFF7ED; position: relative; }
 img, svg, video { max-width: 100%; height: auto; }
-
 ::-webkit-scrollbar { display: none; }
 * { scrollbar-width: none; }
-
-@media (prefers-color-scheme: dark) {
-  body, #root { background: #FFF7ED; color: #1a1a1a; }
-}
+@media (prefers-color-scheme: dark) { body, #root { background: #FFF7ED; color: #1a1a1a; } }
