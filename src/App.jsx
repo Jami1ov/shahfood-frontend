@@ -21,6 +21,7 @@ const api = {
 
 const fmt = n => (Number(n) || 0).toLocaleString("uz-UZ") + " so'm";
 const etaLeft = o => Math.max(5, (Number(o?.eta) || 30) - (Number(o?.stage) || 0) * 8);
+const orderStatusText = o => o?.status || ORDER_STAGES[o?.stage] || "Qabul qilindi";
 const haversine = (lat1,lon1,lat2,lon2) => {
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
@@ -36,6 +37,7 @@ const REVIEW_TAGS = ["Tez yetkazdi","Issiq keldi","Chiroyli qadoq","Taom zo'r","
 const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy taomlar",e:"🍲"},{id:"fastfood",label:"Fast Food",e:"🍔"},{id:"pizza",label:"Pitsa",e:"🍕"},{id:"cafe",label:"Kafe",e:"☕"},{id:"sweet",label:"Shirinlik",e:"🍰"},{id:"soup",label:"Suyuq ovqatlar",e:"🥣"},{id:"bbq",label:"Gril & Kabob",e:"🍖"},{id:"drinks",label:"Ichimliklar",e:"🥤"}];
 const ORDER_CACHE_KEY = "dx_orders";
 const CUSTOM_MENU_KEY = "dx_custom_menus";
+const RESTAURANT_META_KEY = "dx_restaurant_meta";
 const COURIERS = ["Azizbek", "Sardor", "Javohir", "Bekzod"];
 
 const safeDate = value => {
@@ -150,6 +152,26 @@ const writeCustomMenus = menus => {
     window.localStorage.setItem(CUSTOM_MENU_KEY, JSON.stringify(menus));
   } catch {
     // Demo admin ma'lumotlari saqlanmasa ham ilova ishlashda davom etadi.
+  }
+};
+
+const readRestaurantMeta = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(RESTAURANT_META_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    window.localStorage.removeItem(RESTAURANT_META_KEY);
+    return {};
+  }
+};
+
+const writeRestaurantMeta = meta => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RESTAURANT_META_KEY, JSON.stringify(meta));
+  } catch {
+    // Restoran sozlamalari local demo rejimida saqlanmasa ham panel ishlaydi.
   }
 };
 
@@ -292,6 +314,7 @@ const normalizeRestaurant = r => ({
   rating: Number(r.rating) || 4.5,
   lat: Number(r.lat) || SHAHRISABZ.lat,
   lon: Number(r.lon) || SHAHRISABZ.lon,
+  hours: r.hours || "09:00 - 23:00",
 });
 
 export default function App() {
@@ -338,9 +361,11 @@ export default function App() {
   const [courierName, setCourierName] = useState(COURIERS[0]);
   const [restaurants, setRestaurants] = useState([]);
   const [customMenus, setCustomMenus] = useState(() => readCustomMenus());
+  const [restaurantMeta, setRestaurantMeta] = useState(() => readRestaurantMeta());
   const [adminRestaurantId, setAdminRestaurantId] = useState("");
   const [newCategory, setNewCategory] = useState("");
-  const [newItem, setNewItem] = useState({ name: "", description: "", price: "", category: "" });
+  const [newItem, setNewItem] = useState({ name: "", description: "", price: "", category: "", image: "", gallery: "" });
+  const [editingItemId, setEditingItemId] = useState(null);
   const [loading, setLoading] = useState(true);
   const adminIdRef = useRef(900000);
 
@@ -359,6 +384,13 @@ export default function App() {
     });
   }, []);
   const [sortBy, setSortBy] = useState("distance");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace("#", "");
+    const role = hash === "admin-owner" ? "owner" : hash === "admin-courier" ? "courier" : hash === "admin" ? "admin" : "";
+    if (role) Promise.resolve().then(() => { setAdminRole(role); setAdminTab("overview"); setAdminOpen(true); });
+  }, []);
 
   // ── Real auth (telefon → kod → token) ──
   const [token, setToken] = useState(() => localStorage.getItem("dx_token"));
@@ -671,14 +703,78 @@ export default function App() {
       name: newItem.name.trim(),
       description: newItem.description.trim(),
       price,
-      image_url: null,
+      image_url: newItem.image.trim() || null,
+      gallery: newItem.gallery.split(/[\n,]/).map(url=>url.trim()).filter(Boolean),
       is_available: true,
       is_custom: true,
     };
-    saveCustomMenu(selectedAdminRestaurant.id, { ...current, items: [item, ...current.items] });
-    setNewItem({ name: "", description: "", price: "", category: category.name });
-    addToast("Taom menyuga qo'shildi ✓");
+    const items = editingItemId
+      ? current.items.map(existing => String(existing.id) === String(editingItemId) ? { ...existing, ...item, id: existing.id } : existing)
+      : [item, ...current.items];
+    saveCustomMenu(selectedAdminRestaurant.id, { ...current, items });
+    setNewItem({ name: "", description: "", price: "", category: category.name, image: "", gallery: "" });
+    setEditingItemId(null);
+    addToast(editingItemId ? "Taom yangilandi ✓" : "Taom menyuga qo'shildi ✓");
   };
+
+  const editAdminItem = item => {
+    const category = selectedAdminMenu.categories.find(c => c.id === item.category_id);
+    setEditingItemId(item.id);
+    setNewItem({
+      name: item.name || "",
+      description: item.description || "",
+      price: String(item.price || ""),
+      category: category?.name || selectedAdminMenu.categories[0]?.name || "",
+      image: item.image_url || "",
+      gallery: (item.gallery || []).join("\n"),
+    });
+    addToast("Taom tahrirlashga ochildi");
+  };
+
+  const deleteAdminItem = itemId => {
+    if (!selectedAdminRestaurant) return;
+    const current = customMenus[String(selectedAdminRestaurant.id)] || getFallbackMenu(selectedAdminRestaurant);
+    saveCustomMenu(selectedAdminRestaurant.id, { ...current, items: current.items.filter(item => String(item.id) !== String(itemId)) });
+    if (String(editingItemId) === String(itemId)) {
+      setEditingItemId(null);
+      setNewItem({ name: "", description: "", price: "", category: "", image: "", gallery: "" });
+    }
+    addToast("Taom o'chirildi");
+  };
+
+  const updateRestaurantMeta = (restaurantId, patch) => {
+    setRestaurantMeta(prev => {
+      const next = { ...prev, [String(restaurantId)]: { ...(prev[String(restaurantId)] || {}), ...patch } };
+      writeRestaurantMeta(next);
+      return next;
+    });
+    setRestaurants(prev => prev.map(r => String(r.id) === String(restaurantId) ? { ...r, ...patch } : r));
+  };
+
+  const leastBusyCourier = () => COURIERS
+    .map(name => ({ name, count: orders.filter(o => o.courier === name && o.stage < 3).length }))
+    .sort((a,b) => a.count - b.count)[0]?.name || COURIERS[0];
+
+  const handoffToCourier = order => {
+    const courier = order.courier || leastBusyCourier();
+    updateOrder(order.id, { courier, stage: 2, status: "Tayyor, kuryerga berildi" });
+    addToast(`${courier} kuryerga berildi ✓`);
+  };
+
+  const restaurantForOrder = order => restaurants.find(r => String(r.id) === String(order.restoId) || r.name === order.resto) || null;
+
+  const roleLink = role => {
+    if (typeof window === "undefined") return "#";
+    const base = window.location.origin + window.location.pathname;
+    return `${base}#${role === "owner" ? "admin-owner" : role === "courier" ? "admin-courier" : "admin"}`;
+  };
+
+  const readImageFiles = files => Promise.all([...files].map(file => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  }))).then(urls => urls.filter(Boolean));
 
   const menuItems = menuCat ? menuData.items.filter(m => menuData.categories.find(c => c.id === m.category_id)?.name === menuCat) : menuData.items;
 
@@ -867,7 +963,7 @@ export default function App() {
         <div style={{padding:"20px 16px 100px"}}>
           <div style={{background:ord.restoBg,borderRadius:20,padding:"20px",marginBottom:20,textAlign:"center"}}>
             <div style={{fontSize:48,marginBottom:8}}>{STAGE_ICONS[ord.stage]}</div>
-            <div style={{color:"white",fontWeight:900,fontSize:18,marginBottom:4}}>{ORDER_STAGES[ord.stage]}</div>
+            <div style={{color:"white",fontWeight:900,fontSize:18,marginBottom:4}}>{orderStatusText(ord)}</div>
             {ord.stage<3&&<div style={{color:"rgba(255,255,255,.8)",fontSize:13}}>~{etaLeft(ord)} daqiqa qoldi</div>}
           </div>
           <div style={{background:"white",borderRadius:20,padding:"20px",marginBottom:16,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
@@ -1031,6 +1127,9 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:10,fontSize:12,color:"#888"}}>
                 <MapPin size={12} color={P}/><span>{r.address}</span><span style={{marginLeft:8}}><Phone size={12} color={P}/></span><span style={{marginLeft:4}}>{r.phone}</span>
               </div>
+              <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:10,fontSize:12,color:"#888"}}>
+                <Clock size={12} color={P}/><span>Ish vaqti: {restaurantMeta[String(r.id)]?.hours || r.hours || "09:00 - 23:00"}</span>
+              </div>
               {!r.open&&<div style={{background:"#fee2e2",borderRadius:12,padding:"8px 12px",fontSize:12,color:"#dc2626",fontWeight:700,marginBottom:10}}>⚠️ Ushbu restoran hozir yopiq. Keyinroq buyurtma bering.</div>}
               {cartSubtotal>0&&cartSubtotal<r.min&&<div style={{background:"#fff3cd",borderRadius:12,padding:"8px 12px",fontSize:12,color:"#92660a",fontWeight:700,marginBottom:10}}>⚠️ Minimal buyurtma: {fmt(r.min)}. Yana {fmt(r.min-cartSubtotal)} qo'shing.</div>}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
@@ -1071,6 +1170,7 @@ export default function App() {
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:2,lineHeight:1.3}}>{item.name}</div>
                         <div style={{fontSize:11,color:"#aaa",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.description||""}</div>
+                        {(item.gallery || []).length>0&&<div style={{fontSize:10,color:"#999",marginBottom:4}}>Albom: {item.gallery.length} ta rasm</div>}
                         <div style={{fontWeight:900,fontSize:14,color:P}}>{fmt(item.price)}</div>
                       </div>
                       <div style={{flexShrink:0}}>
@@ -1183,7 +1283,7 @@ export default function App() {
                     </div>
                     <div style={{textAlign:"right"}}>
                       <div style={{fontWeight:800,fontSize:13,color:P}}>{fmt(o.total)}</div>
-                      <div style={{fontSize:11,background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,padding:"2px 8px",borderRadius:20,fontWeight:700}}>{ORDER_STAGES[o.stage]}</div>
+                      <div style={{fontSize:11,background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,padding:"2px 8px",borderRadius:20,fontWeight:700}}>{orderStatusText(o)}</div>
                     </div>
                   </div>
                 ))}
@@ -1200,10 +1300,16 @@ export default function App() {
                       <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{o.resto}</div>
                       <div style={{fontSize:11,color:"#aaa"}}>{o.date.toLocaleDateString()} {o.date.toLocaleTimeString("uz-UZ",{hour:"2-digit",minute:"2-digit"})}</div>
                     </div>
-                    <span style={{background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{ORDER_STAGES[o.stage]}</span>
+                    <span style={{background:o.stage===3?"#dcfce7":"#FFF0E5",color:o.stage===3?"#16a34a":P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{orderStatusText(o)}</span>
                   </div>
                   <div style={{fontSize:12,color:"#555",marginBottom:6}}>{normalizeOrderItems(o).map(i=>i.name+"×"+i.qty).join(", ") || "Mahsulot ma'lumoti yo'q"}</div>
                   <div style={{display:"flex",justifyContent:"space-between",gap:12,marginBottom:10}}><span style={{fontSize:12,color:"#888"}}>📍 {o.addr || "Manzil ko'rsatilmagan"}</span><span style={{fontWeight:900,fontSize:14,color:P,whiteSpace:"nowrap"}}>{fmt(o.total)}</span></div>
+                  {adminRole==="courier"&&restaurantForOrder(o)&&(
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                      <a href={`tel:${restaurantForOrder(o).phone || ""}`} style={{textAlign:"center",padding:"10px",borderRadius:12,background:"#dcfce7",color:"#16a34a",fontWeight:900,fontSize:12,textDecoration:"none"}}>Restoranga telefon</a>
+                      <a href={`sms:${restaurantForOrder(o).phone || ""}`} style={{textAlign:"center",padding:"10px",borderRadius:12,background:"#eff6ff",color:"#2563eb",fontWeight:900,fontSize:12,textDecoration:"none"}}>SMS / chat</a>
+                    </div>
+                  )}
                   {adminRole==="admin"&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
                     {COURIERS.map(name=>(
                       <button key={name} onClick={()=>{updateOrder(o.id,{courier:name});addToast(name+" tayinlandi ✓");}} style={{border:"none",borderRadius:20,padding:"6px 10px",fontSize:11,fontWeight:800,fontFamily:"inherit",cursor:"pointer",background:o.courier===name?"#dcfce7":"#f5f5f5",color:o.courier===name?"#16a34a":"#666"}}>
@@ -1213,6 +1319,7 @@ export default function App() {
                   </div>}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     {adminRole==="owner"&&o.stage<1&&<button className="ob" onClick={()=>updateOrder(o.id,{stage:1,status:ORDER_STAGES[1]})} style={{padding:"10px",fontSize:12,borderRadius:12}}>Tayyorlashni boshlash</button>}
+                    {adminRole==="owner"&&o.stage>=1&&o.stage<2&&<button className="ob" onClick={()=>handoffToCourier(o)} style={{padding:"10px",fontSize:12,borderRadius:12}}>Tayyor, kuryerga berish</button>}
                     {adminRole!=="owner"&&o.stage<3&&<button className="ob" onClick={()=>nextOrderStage(o.id)} style={{padding:"10px",fontSize:12,borderRadius:12}}>Keyingi holat</button>}
                     {adminRole!=="courier"&&<button onClick={()=>updateOrder(o.id,{stage:0,status:ORDER_STAGES[0]})} style={{padding:"10px",borderRadius:12,border:`1.5px solid ${P}`,background:"white",color:P,fontFamily:"inherit",fontWeight:800,fontSize:12,cursor:"pointer"}}>Qayta qabul</button>}
                     {adminRole!=="owner"&&<button onClick={()=>updateOrder(o.id,{stage:2,status:ORDER_STAGES[2]})} style={{padding:"10px",borderRadius:12,border:"none",background:"#eff6ff",color:"#2563eb",fontFamily:"inherit",fontWeight:800,fontSize:12,cursor:"pointer"}}>Kuryer yo'lda</button>}
@@ -1226,7 +1333,7 @@ export default function App() {
           {currentAdminTab==="restaurants"&&(
             <div>
               {visibleRestaurants.map(r=>(
-                <div key={r.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:12}}>
+                <div key={r.id} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 2px 10px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                   <div style={{background:r.bg,width:48,height:48,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:22}}>{r.e}</div>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{r.name}</div>
@@ -1241,6 +1348,10 @@ export default function App() {
                       {r.open?"Ochiq":"Yopiq"}
                     </button>
                   </div>
+                  <div style={{width:"100%",gridColumn:"1/-1",marginTop:10}}>
+                    <label style={{display:"block",fontSize:11,fontWeight:900,color:"#888",marginBottom:6}}>Ish vaqti</label>
+                    <input value={restaurantMeta[String(r.id)]?.hours || r.hours || "09:00 - 23:00"} onChange={e=>updateRestaurantMeta(r.id,{hours:e.target.value})} placeholder="09:00 - 23:00" style={{width:"100%",fontSize:13}}/>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1249,7 +1360,7 @@ export default function App() {
             <div>
               <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
                 <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:10}}>Restoran egasi menyusi</div>
-                <select value={adminRestaurantId} onChange={e=>{setAdminRestaurantId(e.target.value);setNewItem({ name:"", description:"", price:"", category:"" });}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #eadcc8",fontFamily:"inherit",fontWeight:800,marginBottom:12}}>
+                <select value={adminRestaurantId} onChange={e=>{setAdminRestaurantId(e.target.value);setEditingItemId(null);setNewItem({ name:"", description:"", price:"", category:"", image:"", gallery:"" });}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #eadcc8",fontFamily:"inherit",fontWeight:800,marginBottom:12}}>
                   {visibleRestaurants.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
                 <div style={{display:"flex",gap:8}}>
@@ -1258,14 +1369,19 @@ export default function App() {
                 </div>
               </div>
               <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:12}}>Taom qo'shish</div>
+                <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:12}}>{editingItemId ? "Taomni tahrirlash" : "Taom qo'shish"}</div>
                 <input value={newItem.name} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))} placeholder="Taom nomi" style={{width:"100%",marginBottom:8}}/>
                 <input value={newItem.price} onChange={e=>setNewItem(p=>({...p,price:e.target.value}))} placeholder="Narx, masalan 25000" inputMode="numeric" style={{width:"100%",marginBottom:8}}/>
                 <textarea value={newItem.description} onChange={e=>setNewItem(p=>({...p,description:e.target.value}))} placeholder="Qisqa izoh" rows={2} style={{width:"100%",marginBottom:8}}/>
+                <input value={newItem.image} onChange={e=>setNewItem(p=>({...p,image:e.target.value}))} placeholder="Asosiy rasm URL" style={{width:"100%",marginBottom:8}}/>
+                <input type="file" accept="image/*" onChange={async e=>{const urls=await readImageFiles(e.target.files||[]);if(urls[0])setNewItem(p=>({...p,image:urls[0]}));}} style={{width:"100%",marginBottom:8,fontSize:12}}/>
+                <textarea value={newItem.gallery} onChange={e=>setNewItem(p=>({...p,gallery:e.target.value}))} placeholder={"Albom rasmlari URLlari\nHar qatorga bittadan"} rows={3} style={{width:"100%",marginBottom:8}}/>
+                <input type="file" accept="image/*" multiple onChange={async e=>{const urls=await readImageFiles(e.target.files||[]);if(urls.length)setNewItem(p=>({...p,gallery:[p.gallery,...urls].filter(Boolean).join("\n")}));}} style={{width:"100%",marginBottom:8,fontSize:12}}/>
                 <select value={newItem.category || selectedAdminMenu.categories[0]?.name || ""} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))} style={{width:"100%",padding:"12px",borderRadius:12,border:"1px solid #eadcc8",fontFamily:"inherit",fontWeight:800,marginBottom:12}}>
                   {selectedAdminMenu.categories.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
-                <button className="ob" onClick={addAdminItem} style={{width:"100%",padding:"13px",fontSize:14,borderRadius:14}}>Taomni menyuga qo'shish</button>
+                <button className="ob" onClick={addAdminItem} style={{width:"100%",padding:"13px",fontSize:14,borderRadius:14}}>{editingItemId ? "O'zgarishni saqlash" : "Taomni menyuga qo'shish"}</button>
+                {editingItemId&&<button onClick={()=>{setEditingItemId(null);setNewItem({ name:"", description:"", price:"", category:"", image:"", gallery:"" });}} style={{width:"100%",marginTop:8,padding:"11px",borderRadius:12,border:"none",background:"#f5f5f5",fontFamily:"inherit",fontWeight:800,cursor:"pointer"}}>Bekor qilish</button>}
               </div>
               <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a",marginBottom:10}}>Menyu ko'rinishi</div>
               {selectedAdminMenu.categories.map(c=>(
@@ -1273,11 +1389,17 @@ export default function App() {
                   <div style={{fontWeight:900,fontSize:14,color:P,marginBottom:8}}>{c.name}</div>
                   {selectedAdminMenu.items.filter(i=>i.category_id===c.id).map(i=>(
                     <div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"6px 0",borderTop:"1px solid #f5e6d8"}}>
-                      <div>
+                      {i.image_url&&<img src={i.image_url} alt="" style={{width:42,height:42,borderRadius:10,objectFit:"cover",flexShrink:0}}/>}
+                      <div style={{flex:1}}>
                         <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>{i.name}</div>
                         <div style={{fontSize:11,color:"#aaa"}}>{i.description}</div>
+                        {(i.gallery || []).length>0&&<div style={{fontSize:10,color:"#999",marginTop:2}}>Albom: {i.gallery.length} ta rasm</div>}
                       </div>
-                      <div style={{fontWeight:900,fontSize:13,color:P,whiteSpace:"nowrap"}}>{fmt(i.price)}</div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:900,fontSize:13,color:P,whiteSpace:"nowrap",marginBottom:6}}>{fmt(i.price)}</div>
+                        <button onClick={()=>editAdminItem(i)} style={{border:"none",borderRadius:10,padding:"5px 8px",background:"#FFF0E5",color:P,fontFamily:"inherit",fontWeight:900,fontSize:11,cursor:"pointer",marginRight:4}}>Edit</button>
+                        <button onClick={()=>deleteAdminItem(i.id)} style={{border:"none",borderRadius:10,padding:"5px 8px",background:"#fee2e2",color:"#dc2626",fontFamily:"inherit",fontWeight:900,fontSize:11,cursor:"pointer"}}>O'chir</button>
+                      </div>
                     </div>
                   ))}
                   {selectedAdminMenu.items.filter(i=>i.category_id===c.id).length===0&&<div style={{fontSize:12,color:"#aaa"}}>Bu bo'limda hali taom yo'q</div>}
@@ -1299,7 +1421,7 @@ export default function App() {
                       <div style={{fontWeight:900,fontSize:15,color:"#1a1a1a"}}>🛵 {name}</div>
                       <span style={{background:assigned.length?"#FFF0E5":"#dcfce7",color:assigned.length?P:"#16a34a",fontWeight:800,fontSize:12,padding:"4px 10px",borderRadius:20}}>{assigned.length ? `${assigned.length} ta zakas` : "Bo'sh"}</span>
                     </div>
-                    {assigned.map(o=><div key={o.id} style={{fontSize:12,color:"#555",padding:"4px 0"}}>{o.resto} · {fmt(o.total)} · {ORDER_STAGES[o.stage]}</div>)}
+                    {assigned.map(o=><div key={o.id} style={{fontSize:12,color:"#555",padding:"4px 0"}}>{o.resto} · {fmt(o.total)} · {orderStatusText(o)}</div>)}
                   </div>
                 );
               })}
@@ -1308,13 +1430,22 @@ export default function App() {
           {currentAdminTab==="bots"&&(
             <div>
               <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8}}>Alohida kirish linklari</div>
+                <div style={{fontSize:13,color:"#888",lineHeight:1.5,marginBottom:12}}>Hozir GitHub Pagesda subdomen ochilmagan, lekin har rol uchun to'g'ridan-to'g'ri link tayyor. Keyin domen ulanganda bular `admin.dasturxon.uz`, `restoran.dasturxon.uz`, `kuryer.dasturxon.uz` bo'ladi.</div>
+                {[["admin","Admin"],["owner","Restoran egasi"],["courier","Kuryer"]].map(([role,label])=>(
+                  <a key={role} href={roleLink(role)} style={{display:"block",background:"#f5f5f5",color:"#1a1a1a",fontWeight:900,fontSize:12,padding:"10px 12px",borderRadius:12,textDecoration:"none",marginBottom:8}}>
+                    {label}: {roleLink(role)}
+                  </a>
+                ))}
+              </div>
+              <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
                 <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8}}>Dasturxon bot</div>
-                <div style={{fontSize:13,color:"#888",lineHeight:1.5,marginBottom:12}}>Login kodi Telegram orqali kelishi ishlayapti. Bot linki mijoz login ekranida ham ko'rsatilgan.</div>
+                <div style={{fontSize:13,color:"#888",lineHeight:1.5,marginBottom:12}}>Bitta Dasturxon bot ichida mijoz login kodi, restoran egasi xabarlari va kuryer tugmalari ishlashi mumkin. Login kodi Telegram orqali kelishi ishlayapti.</div>
                 <a href="https://t.me/dasturxon_app_bot" target="_blank" rel="noreferrer" style={{display:"inline-block",background:P,color:"white",fontWeight:900,fontSize:13,padding:"10px 14px",borderRadius:12,textDecoration:"none"}}>@dasturxon_app_bot</a>
               </div>
               <div style={{background:"white",borderRadius:16,padding:"16px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
                 <div style={{fontWeight:900,fontSize:16,color:"#1a1a1a",marginBottom:8}}>Kuryer bot oqimi</div>
-                {["Yangi zakas kelganda restoran/admin xabar oladi","Restoran qabul qilganda kuryerga tayinlanadi","Kuryer 'Yo'lga chiqdim' va 'Yetkazildi' statuslarini bosadi","Mijoz Buyurtmalarim ichida statusni ko'radi"].map((text,i)=>(
+                {["Yangi zakas kelganda restoran/admin xabar oladi","Restoran 'Tayyorlashni boshlash' bosadi","Ovqat tayyor bo'lsa 'Tayyor, kuryerga berish' bosiladi va bo'sh kuryer tanlanadi","Kuryer restoran bilan telefon/SMS orqali bog'lana oladi","Kuryer 'Yo'lga chiqdim' va 'Yetkazildi' statuslarini bosadi","Mijoz Buyurtmalarim ichida statusni ko'radi"].map((text,i)=>(
                   <div key={text} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderTop:i?"1px solid #f5e6d8":"none"}}>
                     <CheckCircle size={16} color="#16a34a"/><span style={{fontSize:13,color:"#555",fontWeight:700}}>{text}</span>
                   </div>
@@ -1567,7 +1698,7 @@ export default function App() {
                   <div key={o.id} className="cd" onClick={()=>{setTrackingOrder(o.id);setView("tracking");}} style={{background:"white",borderRadius:16,padding:"14px",marginBottom:10,boxShadow:"0 4px 16px rgba(0,0,0,.07)",border:`1.5px solid ${P}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                       <div style={{fontWeight:800,fontSize:14,color:"#1a1a1a"}}>{o.resto}</div>
-                      <span style={{background:"#FFF0E5",color:P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{ORDER_STAGES[o.stage]}</span>
+                      <span style={{background:"#FFF0E5",color:P,fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:20}}>{orderStatusText(o)}</span>
                     </div>
                     <div style={{background:"#f5e6d8",borderRadius:20,height:6,overflow:"hidden",marginBottom:6}}>
                       <div style={{background:P,width:Math.round((o.stage/(ORDER_STAGES.length-1))*100)+"%",height:"100%",borderRadius:20,transition:"width 1s"}}/>
