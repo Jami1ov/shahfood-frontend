@@ -20,6 +20,7 @@ const api = {
 };
 
 const fmt = n => n.toLocaleString("uz-UZ") + " so'm";
+const etaLeft = o => Math.max(5, (Number(o?.eta) || 30) - (Number(o?.stage) || 0) * 8);
 const haversine = (lat1,lon1,lat2,lon2) => {
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
@@ -234,7 +235,8 @@ export default function App() {
         resto: o.restaurants?.name || "—",
         items: (o.items || []).map(i => `${i.qty}× ${i.name}`).join(", "),
         total: o.total,
-        stage: o.stage || 0,
+        stage: Number(o.stage) || 0,
+        eta: Number(o.estimated_minutes || o.eta) || 30,
         status: o.status,
         date: new Date(o.created_at).toLocaleString("uz-UZ", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
       })))).catch(() => {});
@@ -578,7 +580,7 @@ export default function App() {
           <div style={{background:ord.restoBg,borderRadius:20,padding:"20px",marginBottom:20,textAlign:"center"}}>
             <div style={{fontSize:48,marginBottom:8}}>{STAGE_ICONS[ord.stage]}</div>
             <div style={{color:"white",fontWeight:900,fontSize:18,marginBottom:4}}>{ORDER_STAGES[ord.stage]}</div>
-            {ord.stage<3&&<div style={{color:"rgba(255,255,255,.8)",fontSize:13}}>~{Math.max(5, (ord.eta||30) - ord.stage*8)} daqiqa qoldi</div>}
+            {ord.stage<3&&<div style={{color:"rgba(255,255,255,.8)",fontSize:13}}>~{etaLeft(ord)} daqiqa qoldi</div>}
           </div>
           <div style={{background:"white",borderRadius:20,padding:"20px",marginBottom:16,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
             <div style={{marginBottom:16}}>
@@ -1148,7 +1150,7 @@ export default function App() {
                     <div style={{background:"#f5e6d8",borderRadius:20,height:6,overflow:"hidden",marginBottom:6}}>
                       <div style={{background:P,width:Math.round((o.stage/(ORDER_STAGES.length-1))*100)+"%",height:"100%",borderRadius:20,transition:"width 1s"}}/>
                     </div>
-                    <div style={{fontSize:12,color:"#888"}}>~{o.eta - o.stage*8} daqiqa qoldi · Kuzatish →</div>
+                    <div style={{fontSize:12,color:"#888"}}>~{etaLeft(o)} daqiqa qoldi · Kuzatish →</div>
                   </div>
                 ))}
               </div>
