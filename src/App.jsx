@@ -188,7 +188,6 @@ export default function App() {
 
   // ── Real auth (telefon → kod → token) ──
   const [token, setToken] = useState(() => localStorage.getItem("dx_token"));
-  const isLoggedIn = !!token;
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("dx_user")); } catch { return null; } });
   const userName = user?.name || "";
   const userPhone = user?.phone ? "+" + user.phone : "";
@@ -361,8 +360,8 @@ export default function App() {
     return Math.round(10 + d*8);
   };
 
-  const placeOrder = () => {
-    if(!isLoggedIn){addToast("Avval tizimga kiring","err");setView("auth");return;}
+  const placeOrder = (authToken = token) => {
+    if(!authToken){addToast("Avval tizimga kiring","err");setView("auth");return;}
     if(cartSubtotal < (resto?.min||0)){addToast("Minimal buyurtma: "+fmt(resto.min),"err");return;}
     const items = Object.entries(cart).map(([id,qty])=>{
       const it = menuData.items.find(m=>m.id===+id);
@@ -381,7 +380,7 @@ export default function App() {
       no_call:noCall, courier_note:courierNote,
       estimated_minutes:estDelivery(resto)
     };
-    api.post("/api/orders", orderPayload, token).then(apiOrd => {
+    api.post("/api/orders", orderPayload, authToken).then(apiOrd => {
       if (apiOrd?.error) { addToast(apiOrd.error, "err"); return; }
       const ord = {
         id: apiOrd.id, resto:resto.name, restoId:resto.id, restoE:resto.e, restoBg:resto.bg,
@@ -512,7 +511,12 @@ export default function App() {
       localStorage.setItem("dx_user", JSON.stringify(r.user));
       setToken(r.token); setUser(r.user);
       setLoginStep("phone"); setLoginCode(""); setLoginPhone(""); setLoginName(""); setLoginErr("");
-      setView("main"); addToast(`Xush kelibsiz, ${r.user?.name||""}! 👋`);
+      addToast(`Xush kelibsiz, ${r.user?.name||""}! 👋`);
+      if (checkoutOpen && resto && cartCount > 0) {
+        placeOrder(r.token);
+      } else {
+        setView("main");
+      }
     }).catch(()=>setLoginErr("Tarmoq xatosi")).finally(()=>setLoginLoading(false));
   };
 
