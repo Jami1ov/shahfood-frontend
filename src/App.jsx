@@ -361,6 +361,7 @@ export default function App() {
   };
 
   const placeOrder = (authToken = token) => {
+    if (typeof authToken !== "string") authToken = token;
     if(!authToken){addToast("Avval tizimga kiring","err");setView("auth");return;}
     if(cartSubtotal < (resto?.min||0)){addToast("Minimal buyurtma: "+fmt(resto.min),"err");return;}
     const items = Object.entries(cart).map(([id,qty])=>{
@@ -712,7 +713,7 @@ export default function App() {
               </div>
             </div>
             <div style={{position:"fixed",bottom:0,left:0,right:0,margin:"0 auto",width:"100%",maxWidth:isDesktop?600:480,padding:"12px 16px 24px",zIndex:100}}>
-              <button className="ob" onClick={placeOrder} style={{width:"100%",padding:"15px 20px",fontSize:15,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
+              <button className="ob" onClick={()=>placeOrder()} style={{width:"100%",padding:"15px 20px",fontSize:15,borderRadius:18,boxShadow:"0 8px 30px rgba(249,115,22,.4)"}}>
                 Buyurtma berish — {fmt(cartTotal)}
               </button>
             </div>
