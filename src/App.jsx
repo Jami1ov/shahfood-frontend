@@ -19,7 +19,7 @@ const api = {
   }).then(r => r.json()),
 };
 
-const fmt = n => n.toLocaleString("uz-UZ") + " so'm";
+const fmt = n => (Number(n) || 0).toLocaleString("uz-UZ") + " so'm";
 const etaLeft = o => Math.max(5, (Number(o?.eta) || 30) - (Number(o?.stage) || 0) * 8);
 const haversine = (lat1,lon1,lat2,lon2) => {
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
@@ -55,39 +55,78 @@ const clampStage = value => {
   return Math.min(ORDER_STAGES.length - 1, Math.max(0, stage));
 };
 
+const parseOrderItemText = value => {
+  const text = String(value || "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // Oddiy matn formatini pastda ajratamiz.
+  }
+  return text.split(/[,·]/).map(part => {
+    const line = part.trim();
+    const match = line.match(/^(\d+)\s*[×x]\s*(.+)$/i) || line.match(/^(.+?)\s*[×x]\s*(\d+)$/i);
+    if (!match) return { name: line, qty: 1, price: 0 };
+    const firstNumber = /^\d+$/.test(match[1]);
+    return {
+      name: (firstNumber ? match[2] : match[1]).trim(),
+      qty: Number(firstNumber ? match[1] : match[2]) || 1,
+      price: 0,
+    };
+  }).filter(item => item.name);
+};
+
+const normalizeOrderItems = order => {
+  if (!order || typeof order !== "object") return [];
+  const source = order.items ?? order.order_items ?? order.orderItems ?? order.cart_items ?? order.cartItems ?? order.products ?? [];
+  const rawItems = typeof source === "string"
+    ? parseOrderItemText(source)
+    : Array.isArray(source)
+      ? source
+      : Object.values(source || {});
+
+  return rawItems.map(item => {
+    if (typeof item === "string") return parseOrderItemText(item);
+    if (!item || typeof item !== "object") return [];
+    const linked = item.menu_items || item.menu_item || item.product || item.food || item.dish || {};
+    return {
+      id: item.id || item.menu_item_id || linked.id,
+      name: item.name || item.title || linked.name || linked.title || "Taom",
+      qty: Number(item.qty || item.quantity || item.count) || 1,
+      price: Number(item.price || item.unit_price || item.amount || linked.price) || 0,
+    };
+  }).flat().filter(item => item.name);
+};
+
 const normalizeOrder = (order = {}) => {
-  const rawItems = Array.isArray(order.items) ? order.items : [];
+  const safeOrder = order && typeof order === "object" ? order : {};
   return {
-    ...order,
-    id: order.id || order.local_id || `local-${Date.now()}`,
-    resto: order.restaurants?.name || order.resto || order.restaurant_name || "Restoran",
-    restoId: order.restaurant_id || order.restoId,
-    restoE: order.restaurants?.emoji || order.restoE || "🍽️",
-    restoBg: order.restaurants?.bg_gradient || order.restoBg || "linear-gradient(145deg,#F97316,#fbbf24)",
-    items: rawItems.map(item => typeof item === "string"
-      ? { name: item, qty: 1, price: 0 }
-      : {
-        id: item.id,
-        name: item.name || "Taom",
-        qty: Number(item.qty || item.quantity) || 1,
-        price: Number(item.price) || 0,
-      }),
-    total: Number(order.total) || 0,
-    stage: clampStage(order.stage ?? stageFromStatus(order.status)),
-    eta: Number(order.estimated_minutes || order.eta) || 30,
-    status: order.status || "Qabul qilindi",
-    date: safeDate(order.created_at || order.date),
-    addr: order.address || order.addr || "",
-    pay: order.payment_method || order.pay || "",
-    reviewed: Boolean(order.reviewed),
+    ...safeOrder,
+    id: safeOrder.id || safeOrder.local_id || `local-${Date.now()}`,
+    resto: safeOrder.restaurants?.name || safeOrder.resto || safeOrder.restaurant_name || "Restoran",
+    restoId: safeOrder.restaurant_id || safeOrder.restoId,
+    restoE: safeOrder.restaurants?.emoji || safeOrder.restoE || "🍽️",
+    restoBg: safeOrder.restaurants?.bg_gradient || safeOrder.restoBg || "linear-gradient(145deg,#F97316,#fbbf24)",
+    items: normalizeOrderItems(safeOrder),
+    total: Number(safeOrder.total) || 0,
+    stage: clampStage(safeOrder.stage ?? stageFromStatus(safeOrder.status)),
+    eta: Number(safeOrder.estimated_minutes || safeOrder.eta) || 30,
+    status: safeOrder.status || "Qabul qilindi",
+    date: safeDate(safeOrder.created_at || safeOrder.date),
+    addr: safeOrder.address || safeOrder.addr || "",
+    pay: safeOrder.payment_method || safeOrder.pay || "",
+    reviewed: Boolean(safeOrder.reviewed),
   };
 };
 
 const readStoredOrders = () => {
   if (typeof window === "undefined") return [];
   try {
-    return JSON.parse(window.localStorage.getItem(ORDER_CACHE_KEY) || "[]").map(normalizeOrder);
+    const parsed = JSON.parse(window.localStorage.getItem(ORDER_CACHE_KEY) || "[]");
+    return (Array.isArray(parsed) ? parsed : []).map(normalizeOrder);
   } catch {
+    window.localStorage.removeItem(ORDER_CACHE_KEY);
     return [];
   }
 };
@@ -109,7 +148,12 @@ const mergeOrders = (...groups) => {
   const merged = new Map();
   groups.flat().filter(Boolean).map(normalizeOrder).forEach(order => {
     const key = String(order.id);
-    merged.set(key, { ...(merged.get(key) || {}), ...order });
+    const existing = merged.get(key) || {};
+    const next = { ...existing, ...order };
+    if ((existing.items || []).length > 0 && (order.items || []).length === 0) next.items = existing.items;
+    if (existing.total && !order.total) next.total = existing.total;
+    if (existing.resto && order.resto === "Restoran") next.resto = existing.resto;
+    merged.set(key, next);
   });
   return [...merged.values()].sort((a, b) => safeDate(b.date) - safeDate(a.date));
 };
@@ -203,6 +247,31 @@ const getFallbackMenu = (restaurant) => {
   return { categories, items };
 };
 
+const FALLBACK_RESTAURANTS = [
+  { id: 1, name: "Milliy Ta'm", emoji: "🍲", category: ["uzbek"], rating: 4.6, review_count: 261, delivery_fee: 7000, min_order: 25000, lat: 39.0598, lon: 66.8492, is_open: true, badge: "Halol", bg_gradient: "linear-gradient(145deg,#4148bf,#6672ff)", address: "Shahrisabz markazi", phone: "+998 90 123 45 67" },
+  { id: 2, name: "Temur Cafe", emoji: "☕", category: ["cafe"], rating: 4.5, review_count: 183, delivery_fee: 7000, min_order: 22000, lat: 39.0605, lon: 66.8501, is_open: true, badge: "Tez yetkazma", bg_gradient: "linear-gradient(145deg,#27789b,#54b9d3)", address: "Amir Temur ko'chasi", phone: "+998 91 222 33 44" },
+  { id: 3, name: "Oq Saroy", emoji: "🕌", category: ["uzbek"], rating: 4.7, review_count: 312, delivery_fee: 8000, min_order: 30000, lat: 39.0608, lon: 66.8504, is_open: true, badge: "Premium", bg_gradient: "linear-gradient(145deg,#7c3aed,#c084fc)", address: "Oq Saroy yaqinida", phone: "+998 93 444 55 66" },
+  { id: 4, name: "Shakarchi", emoji: "🍰", category: ["sweet"], rating: 4.6, review_count: 209, delivery_fee: 7000, min_order: 18000, lat: 39.0599, lon: 66.8506, is_open: true, badge: "Eng sevimli", bg_gradient: "linear-gradient(145deg,#db2777,#f9a8d4)", address: "Markaziy bozor", phone: "+998 94 777 88 99" },
+  { id: 5, name: "Fast Burger", emoji: "🍔", category: ["fastfood"], rating: 4.1, review_count: 142, delivery_fee: 6000, min_order: 20000, lat: 39.0612, lon: 66.8510, is_open: true, badge: "Tezkor", bg_gradient: "linear-gradient(145deg,#ea580c,#facc15)", address: "Universam yonida", phone: "+998 95 111 22 33" },
+  { id: 6, name: "Pizza House", emoji: "🍕", category: ["pizza"], rating: 4.3, review_count: 156, delivery_fee: 8000, min_order: 35000, lat: 39.0630, lon: 66.8530, is_open: true, badge: "Chegirmalar", bg_gradient: "linear-gradient(145deg,#dc2626,#fb7185)", address: "Ipak yo'li ko'chasi", phone: "+998 97 333 44 55" },
+  { id: 7, name: "Barbekyu King", emoji: "🔥", category: ["bbq"], rating: 4.5, review_count: 174, delivery_fee: 8000, min_order: 30000, lat: 39.0640, lon: 66.8545, is_open: true, badge: "Kechgacha ochiq", bg_gradient: "linear-gradient(145deg,#9333ea,#f43f5e)", address: "Guliston mahallasi", phone: "+998 99 555 66 77" },
+  { id: 8, name: "Mehnat Oshxona", emoji: "🥘", category: ["uzbek"], rating: 4.2, review_count: 89, delivery_fee: 5000, min_order: 18000, lat: 39.0620, lon: 66.8520, is_open: true, badge: "Arzon", bg_gradient: "linear-gradient(145deg,#16a34a,#84cc16)", address: "Mehnat ko'chasi", phone: "+998 90 888 99 00" },
+];
+
+const normalizeRestaurant = r => ({
+  ...r,
+  cats: r.category || r.cats || [],
+  fee: Number(r.delivery_fee ?? r.fee) || 0,
+  min: Number(r.min_order ?? r.min) || 0,
+  bg: r.bg_gradient || r.bg || "linear-gradient(145deg,#F97316,#fbbf24)",
+  e: r.emoji || r.e || "🍽️",
+  open: r.is_open ?? r.open ?? true,
+  reviews: Number(r.review_count ?? r.reviews) || 0,
+  rating: Number(r.rating) || 4.5,
+  lat: Number(r.lat) || SHAHRISABZ.lat,
+  lon: Number(r.lon) || SHAHRISABZ.lon,
+});
+
 export default function App() {
   const [view, setView] = useState("main");
   const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= 768);
@@ -248,20 +317,10 @@ export default function App() {
 
   useEffect(() => {
     api.get("/api/restaurants").then(data => {
-      if(Array.isArray(data)) {
-        setRestaurants(data.map(r => ({
-          ...r,
-          cats: r.category || [],
-          fee: r.delivery_fee,
-          min: r.min_order,
-          bg: r.bg_gradient,
-          e: r.emoji,
-          open: r.is_open,
-          reviews: r.review_count,
-        })));
-      }
+      const list = Array.isArray(data) && data.length ? data : FALLBACK_RESTAURANTS;
+      setRestaurants(list.map(normalizeRestaurant));
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => { setRestaurants(FALLBACK_RESTAURANTS.map(normalizeRestaurant)); setLoading(false); });
   }, []);
   const [sortBy, setSortBy] = useState("distance");
 
@@ -329,7 +388,7 @@ export default function App() {
         .then(fresh => {
           if (!fresh) return;
           setOrders(prev => {
-            const next = prev.map(o => o.id === trackingOrder
+            const next = prev.map(o => String(o.id) === String(trackingOrder)
               ? normalizeOrder({ ...o, stage: fresh.stage ?? o.stage, status: fresh.status || o.status })
               : o);
             writeStoredOrders(next);
@@ -490,7 +549,7 @@ export default function App() {
   const submitReview = () => {
     if(!reviewOpen) return;
     setOrders(prev => {
-      const next = prev.map(o => o.id === reviewOpen.id ? { ...o, reviewed:true, rating:starRest, courierRating:starCourier, reviewTags, reviewText } : o);
+      const next = prev.map(o => String(o.id) === String(reviewOpen.id) ? { ...o, reviewed:true, rating:starRest, courierRating:starCourier, reviewTags, reviewText } : o);
       writeStoredOrders(next);
       return next;
     });
@@ -660,9 +719,26 @@ export default function App() {
   );
 
   if(view==="tracking") {
-    const ord = orders.find(o=>o.id===trackingOrder);
-    if(!ord) return null;
+    const ord = orders.find(o=>String(o.id)===String(trackingOrder));
+    if(!ord) return (
+      <div style={WP}>
+        <style>{CSS}</style>
+        <div style={SH}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={()=>setView("main")} style={{background:"#FFF0E5",border:"none",borderRadius:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><ArrowLeft size={20} color="#1a1a1a"/></button>
+            <span style={{fontWeight:900,fontSize:18,color:"#1a1a1a"}}>Buyurtma kuzatuv</span>
+          </div>
+        </div>
+        <div style={{padding:"60px 24px",textAlign:"center"}}>
+          <div style={{fontSize:64,marginBottom:16}}>📦</div>
+          <div style={{fontWeight:900,fontSize:20,color:"#1a1a1a",marginBottom:8}}>Buyurtma topilmadi</div>
+          <div style={{fontSize:14,color:"#888",lineHeight:1.5,marginBottom:24}}>Ro'yxat yangilangan bo'lishi mumkin. Buyurtmalar sahifasidan qayta ochib ko'ring.</div>
+          <button className="ob" onClick={()=>{setView("main");setTab("orders");}} style={{padding:"14px 24px",fontSize:15}}>Buyurtmalarimga qaytish</button>
+        </div>
+      </div>
+    );
     const pct = Math.round(((ord.stage+1)/ORDER_STAGES.length)*100);
+    const ordItems = normalizeOrderItems(ord);
     return (
       <div style={WP}>
         <style>{CSS}</style>
@@ -703,7 +779,10 @@ export default function App() {
           </div>
           <div style={{background:"white",borderRadius:20,padding:"16px",marginBottom:16,boxShadow:"0 4px 16px rgba(0,0,0,.07)"}}>
             <div style={{fontWeight:800,fontSize:15,marginBottom:12,color:"#1a1a1a"}}>📋 Buyurtma tafsiloti</div>
-            {ord.items.map((it,i)=>(
+            {ordItems.length === 0 && (
+              <div style={{fontSize:13,color:"#888",lineHeight:1.5}}>Taomlar ro'yxati serverdan to'liq kelmadi, lekin buyurtma qabul qilingan. Yangi buyurtmalarda mahsulotlar shu yerda ko'rinadi.</div>
+            )}
+            {ordItems.map((it,i)=>(
               <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontSize:13,color:"#555"}}>{it.name} × {it.qty}</span>
                 <span style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{fmt(it.price*it.qty)}</span>
