@@ -385,33 +385,35 @@ export default function App() {
 
   const RestoCard = ({r}) => (
     <div className="cd" onClick={()=>openResto(r)} style={{background:"white",borderRadius:20,overflow:"hidden",boxShadow:"0 4px 16px rgba(0,0,0,.08)"}}>
-      <div style={{background:r.bg,height:110,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <span style={{fontSize:42}}>{r.e}</span>
+      <div style={{background:r.bg,height:isDesktop?170:110,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <span style={{fontSize:isDesktop?64:42}}>{r.e}</span>
         {!r.open&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"white",fontWeight:800,fontSize:12,background:"rgba(0,0,0,.4)",padding:"4px 12px",borderRadius:20}}>Yopiq</span></div>}
         <div style={{position:"absolute",top:8,left:8,background:"rgba(255,255,255,.22)",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,color:"white"}}>{r.badge}</div>
         <button className="hb" style={{position:"absolute",top:8,right:8}} onClick={e=>toggleFav(r.id,e)}>
           <Heart size={14} fill={favs.has(r.id)?"#ef4444":"none"} color={favs.has(r.id)?"#ef4444":"#aaa"} strokeWidth={2}/>
         </button>
       </div>
-      <div style={{padding:"10px 10px 12px"}}>
-        <div style={{fontWeight:800,fontSize:13,color:"#1a1a1a",marginBottom:4,lineHeight:1.2}}>{r.name}</div>
+      <div style={{padding:isDesktop?"14px 14px 16px":"10px 10px 12px"}}>
+        <div style={{fontWeight:800,fontSize:isDesktop?16:13,color:"#1a1a1a",marginBottom:4,lineHeight:1.2}}>{r.name}</div>
         <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:5}}>
-          <Star size={11} fill="#fbbf24" color="#fbbf24"/>
-          <span style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>{r.rating}</span>
-          <span style={{fontSize:11,color:"#bbb"}}>({r.reviews})</span>
+          <Star size={isDesktop?13:11} fill="#fbbf24" color="#fbbf24"/>
+          <span style={{fontSize:isDesktop?13:12,fontWeight:700,color:"#1a1a1a"}}>{r.rating}</span>
+          <span style={{fontSize:isDesktop?12:11,color:"#bbb"}}>({r.reviews})</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <Clock size={11} color="#aaa"/>
-          <span style={{fontSize:11,color:"#888",fontWeight:600}}>{estDelivery(r)} min</span>
+          <Clock size={isDesktop?12:11} color="#aaa"/>
+          <span style={{fontSize:isDesktop?12:11,color:"#888",fontWeight:600}}>{estDelivery(r)} min</span>
           <span style={{width:3,height:3,background:"#eee",borderRadius:"50%"}}/>
-          <MapPin size={10} color="#aaa"/>
-          <span style={{fontSize:11,color:"#888",fontWeight:600}}>{r.dist} km</span>
+          <MapPin size={isDesktop?11:10} color="#aaa"/>
+          <span style={{fontSize:isDesktop?12:11,color:"#888",fontWeight:600}}>{r.dist} km</span>
         </div>
       </div>
     </div>
   );
 
-  const BottomNav = () => (
+  const BottomNav = () => {
+    if (isDesktop) return null;
+    return (
     <div style={BN}>
       {[{id:"home",icon:Home,label:"Bosh sahifa"},{id:"search",icon:Search,label:"Qidiruv"},{id:"orders",icon:ShoppingBag,label:"Buyurtmalar"},{id:"profile",icon:User,label:"Profil"}].map(({id,icon:Icon,label})=>(
         <button key={id} onClick={()=>changeTab(id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",position:"relative"}}>
@@ -422,7 +424,8 @@ export default function App() {
         </button>
       ))}
     </div>
-  );
+    );
+  };
 
   const sendCode = () => {
     const phone = normPhone(loginPhone);
@@ -914,6 +917,33 @@ export default function App() {
 
       {tab==="home"&&(
         <>
+          {isDesktop ? (
+            <div style={{background:"white",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 12px rgba(0,0,0,.06)",padding:"14px 0"}}>
+              <div style={{maxWidth:1200,margin:"0 auto",padding:"0 24px",display:"flex",alignItems:"center",gap:24}}>
+                <div onClick={()=>{setHomeCat("all");setHomeQ("");}} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0}}>
+                  <span style={{fontSize:28}}>🍽️</span>
+                  <span style={{fontWeight:900,fontSize:22,color:P,letterSpacing:-0.5}}>Dasturxon</span>
+                </div>
+                <div style={{flex:1,display:"flex",alignItems:"center",gap:10,background:"#f5f0eb",borderRadius:14,padding:"12px 18px",maxWidth:560}}>
+                  <Search size={20} color="#aaa"/>
+                  <input type="text" value={homeQ} onChange={e=>setHomeQ(e.target.value)} placeholder="Restoran yoki taom qidirish..." style={{border:"none",outline:"none",flex:1,fontSize:15,fontFamily:"inherit",background:"transparent",color:"#1a1a1a",padding:0}}/>
+                  {homeQ&&<button onClick={()=>setHomeQ("")} style={{border:"none",background:"none",cursor:"pointer",color:"#aaa",fontSize:18,lineHeight:1}}>✕</button>}
+                </div>
+                <button onClick={getLocation} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+                  <MapPin size={18} color={P} strokeWidth={2.5}/>
+                  <span style={{fontWeight:800,fontSize:14,color:"#1a1a1a",whiteSpace:"nowrap",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis"}}>{activeAddr.addr.includes("(")?activeAddr.addr.split("(")[0].trim():activeAddr.addr}</span>
+                </button>
+                <button onClick={()=>setTab("orders")} style={{position:"relative",background:"#f5f0eb",border:"none",borderRadius:12,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+                  <ShoppingBag size={20} color="#555"/>
+                  {orders.filter(o=>o.stage<3).length>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#ef4444",color:"white",fontSize:10,fontWeight:800,minWidth:18,height:18,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{orders.filter(o=>o.stage<3).length}</span>}
+                </button>
+                <button onClick={()=>setTab("profile")} style={{background:P,border:"none",borderRadius:12,padding:"0 18px",height:44,display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0}}>
+                  <User size={18} color="white"/>
+                  <span style={{color:"white",fontWeight:700,fontSize:14}}>{isLoggedIn?(userName||"Profil"):"Kirish"}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
           <div style={SH}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
               <div>
@@ -933,7 +963,9 @@ export default function App() {
               </div>
             </div>
           </div>
+          )}
 
+          {!isDesktop&&(
           <div style={{padding:"14px 16px 4px",maxWidth:isDesktop?1100:"100%",margin:"0 auto",width:"100%"}}>
             <div style={{display:"flex",gap:10}}>
               <div style={{flex:1,display:"flex",alignItems:"center",gap:10,background:"white",borderRadius:16,padding:"12px 16px",boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
@@ -946,21 +978,22 @@ export default function App() {
               </button>
             </div>
           </div>
+          )}
 
           {!homeQ&&(
             <div style={{margin:"14px auto 4px",padding:"0 16px",maxWidth:isDesktop?1100:"100%",width:"100%"}}>
-              <div style={{background:"linear-gradient(135deg,#c0370a,#F97316 50%,#fbbf24)",borderRadius:20,padding:"20px",position:"relative",overflow:"hidden",cursor:"pointer"}} onClick={()=>addToast("Aksiya: DASTURXON10 kod bilan bepul yetkazma!")}>
-                <div style={{position:"absolute",right:-20,top:-20,fontSize:90,opacity:.12}}>🎉</div>
-                <div style={{position:"absolute",right:20,top:"50%",transform:"translateY(-50%)",fontSize:48}}>🍽️</div>
-                <div style={{color:"rgba(255,255,255,.8)",fontSize:11,fontWeight:700,marginBottom:4,letterSpacing:1}}>MAXSUS TAKLIF</div>
-                <div style={{color:"white",fontSize:18,fontWeight:900,lineHeight:1.25,marginBottom:8}}>Birinchi buyurtmada<br/>yetkazma BEPUL!</div>
+              <div style={{background:"linear-gradient(135deg,#c0370a,#F97316 50%,#fbbf24)",borderRadius:20,padding:isDesktop?"32px 36px":"20px",position:"relative",overflow:"hidden",cursor:"pointer"}} onClick={()=>addToast("Aksiya: DASTURXON10 kod bilan bepul yetkazma!")}>
+                <div style={{position:"absolute",right:-20,top:-20,fontSize:isDesktop?140:90,opacity:.12}}>🎉</div>
+                <div style={{position:"absolute",right:isDesktop?50:20,top:"50%",transform:"translateY(-50%)",fontSize:isDesktop?72:48}}>🍽️</div>
+                <div style={{color:"rgba(255,255,255,.8)",fontSize:isDesktop?13:11,fontWeight:700,marginBottom:4,letterSpacing:1}}>MAXSUS TAKLIF</div>
+                <div style={{color:"white",fontSize:isDesktop?28:18,fontWeight:900,lineHeight:1.25,marginBottom:8}}>Birinchi buyurtmada<br/>yetkazma BEPUL!</div>
                 <div style={{background:"rgba(255,255,255,.22)",display:"inline-block",padding:"6px 14px",borderRadius:20,color:"white",fontSize:12,fontWeight:800}}>DASTURXON10 kod bilan →</div>
               </div>
             </div>
           )}
 
           <div style={{marginTop:14,marginBottom:4,maxWidth:isDesktop?1100:"100%",marginLeft:"auto",marginRight:"auto",width:"100%"}}>
-            <div className="hs" style={{padding:"0 16px 4px"}}>
+            <div className="hs" style={{padding:"0 16px 4px",flexWrap:isDesktop?"wrap":"nowrap"}}>
               {CATS.map(c=>(
                 <button key={c.id} onClick={()=>setHomeCat(c.id)} style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 12px",borderRadius:16,border:homeCat===c.id?`2px solid ${P}`:"2px solid transparent",background:homeCat===c.id?"#FFF0E5":"white",cursor:"pointer",transition:"all .15s",boxShadow:homeCat===c.id?"none":"0 2px 8px rgba(0,0,0,.05)"}}>
                   <span style={{fontSize:20}}>{c.e}</span>
