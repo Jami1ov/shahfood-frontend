@@ -75,9 +75,9 @@ const CATS = [{id:"all",label:"Barchasi",e:"🍽️"},{id:"uzbek",label:"Milliy 
 
 export default function App() {
   const [view, setView] = useState("main");
-  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= 1024);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= 768);
   useEffect(() => {
-    const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+    const onResize = () => setIsDesktop(window.innerWidth >= 768);
     onResize();
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
@@ -1024,7 +1024,7 @@ export default function App() {
                 <div style={{fontWeight:700,color:"#aaa"}}>Yuklanmoqda...</div>
               </div>
             ) : null}
-            <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(auto-fill,minmax(260px,1fr))":"1fr 1fr",gap:isDesktop?16:12}}>
+            <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(auto-fill,minmax(220px,1fr))":"1fr 1fr",gap:isDesktop?16:12}}>
               {filteredHome.map(r=><RestoCard key={r.id} r={r}/>)}
             </div>
           </div>
